@@ -11,9 +11,9 @@
     }
   },
   "env": {
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "DATABASE_URL": "@database_url",
-    "ADMIN_USERNAME": "@admin_username",
-    "ADMIN_PASSWORD": "@admin_password"
+    "NEXTAUTH_SECRET": "Kt1XtRi8uKkMmUECxVDkFuT2FbQkbVL3L2XBUj659i8=",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_lGkgRzm0oJf4@ep-dry-band-adx1yzwd-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "ADMIN_USERNAME": "admin",
+    "ADMIN_PASSWORD": "admin123"
   }
 }
