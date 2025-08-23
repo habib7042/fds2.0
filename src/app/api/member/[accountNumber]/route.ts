@@ -3,10 +3,10 @@ import { db } from "@/lib/db"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { accountNumber: string } }
+  { params }: { params: Promise<{ accountNumber: string }> }
 ) {
   try {
-    const { accountNumber } = params
+    const { accountNumber } = await params
 
     if (!accountNumber || accountNumber.length !== 4) {
       return NextResponse.json(
