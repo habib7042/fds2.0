@@ -1,0 +1,12 @@
+# GitHub Push Command with Personal Access Token
+
+# Replace YOUR_TOKEN with your actual GitHub Personal Access Token
+# Then run this command in your terminal:
+
+git push https://habib7042:YOUR_TOKEN@github.com/habib7042/fds2.0.git master
+
+# Example:
+# git push https://habib7042:ghp_your_token_here@github.com/habib7042/fds2.0.git master
+
+# Make sure your token has 'repo' permissions
+# Token should be generated from: GitHub → Settings → Developer settings → Personal access tokens
