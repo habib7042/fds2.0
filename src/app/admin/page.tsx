@@ -622,19 +622,19 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-lg text-muted-foreground">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-muted/40 p-4">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">হিসাবরক্ষক ড্যাশবোর্ড</h1>
-            <p className="text-gray-600">Admin Dashboard</p>
+            <h1 className="text-3xl font-bold tracking-tight">হিসাবরক্ষক ড্যাশবোর্ড</h1>
+            <p className="text-muted-foreground">Admin Dashboard</p>
           </div>
           <div className="flex gap-4">
             <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
@@ -925,12 +925,12 @@ export default function AdminDashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="sticky left-0 bg-white z-10">সদস্য</TableHead>
+                          <TableHead className="sticky left-0 bg-background z-10">সদস্য</TableHead>
                           <TableHead className="text-center">একাউন্ট</TableHead>
                           {getFilteredMonths().map((monthInfo) => (
                             <TableHead key={monthInfo.key} className="text-center min-w-[100px]">
                               <div>
-                                <div className="text-xs text-gray-500">{monthInfo.monthName}</div>
+                                <div className="text-xs text-muted-foreground">{monthInfo.monthName}</div>
                                 <div className="font-semibold">{monthInfo.year}</div>
                               </div>
                             </TableHead>
@@ -940,7 +940,7 @@ export default function AdminDashboard() {
                       <TableBody>
                         {members.map((member) => (
                           <TableRow key={member.id}>
-                            <TableCell className="sticky left-0 bg-white z-10 font-medium">
+                            <TableCell className="sticky left-0 bg-background z-10 font-medium">
                               {member.name}
                             </TableCell>
                             <TableCell className="text-center font-mono">
@@ -984,7 +984,7 @@ export default function AdminDashboard() {
                           <div className="text-2xl font-bold text-green-600">
                             {getPaymentStats().paidMembers}
                           </div>
-                          <div className="text-sm text-gray-600">চাঁদা দিয়েছেন</div>
+                          <div className="text-sm text-muted-foreground">চাঁদা দিয়েছেন</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -994,7 +994,7 @@ export default function AdminDashboard() {
                           <div className="text-2xl font-bold text-red-600">
                             {getPaymentStats().unpaidMembers}
                           </div>
-                          <div className="text-sm text-gray-600">চাঁদা দেননি</div>
+                          <div className="text-sm text-muted-foreground">চাঁদা দেননি</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1004,7 +1004,7 @@ export default function AdminDashboard() {
                           <div className="text-2xl font-bold text-blue-600">
                             ৳{getPaymentStats().totalAmount.toFixed(2)}
                           </div>
-                          <div className="text-sm text-gray-600">মোট চাঁদা</div>
+                          <div className="text-sm text-muted-foreground">মোট চাঁদা</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -1025,16 +1025,16 @@ export default function AdminDashboard() {
                 <CardContent>
                   <div className="space-y-3">
                     {getRecentContributions().map((contribution, index) => (
-                      <div key={contribution.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={contribution.id} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border">
                         <div>
                           <div className="font-medium">{contribution.memberName}</div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-muted-foreground">
                             {getMonthName(contribution.month)} {contribution.year}
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="font-semibold text-green-600">৳{contribution.amount}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             {new Date(contribution.paymentDate).toLocaleDateString("bn-BD")}
                           </div>
                         </div>
@@ -1053,18 +1053,18 @@ export default function AdminDashboard() {
                 <CardContent>
                   <div className="space-y-3">
                     {getMonthlyPaymentStatus().map((status) => (
-                      <div key={status.month} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div key={status.month} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border">
                         <div>
                           <div className="font-medium">{status.monthName}</div>
-                          <div className="text-sm text-gray-500">{status.year}</div>
+                          <div className="text-sm text-muted-foreground">{status.year}</div>
                         </div>
                         <div className="text-right">
                           <div className="text-sm">
                             <span className="text-green-600">{status.paidCount} জন</span>
-                            <span className="text-gray-400"> / </span>
+                            <span className="text-muted-foreground"> / </span>
                             <span className="text-red-600">{status.unpaidCount} জন</span>
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             ৳{status.totalAmount}
                           </div>
                         </div>
