@@ -15,8 +15,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet } from "lucide-react"
+import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface Member {
   id: string
@@ -25,6 +26,16 @@ interface Member {
   phone?: string
   email?: string
   address?: string
+  dob?: string
+  nid?: string
+  fatherName?: string
+  motherName?: string
+  maritalStatus?: string
+  nomineeName?: string
+  nomineeNid?: string
+  nomineeRelation?: string
+  profileImage?: string
+  nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
 }
@@ -47,6 +58,7 @@ export default function AdminDashboard() {
   const [showAddMember, setShowAddMember] = useState(false)
   const [showAddContribution, setShowAddContribution] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const router = useRouter()
 
   const [newMember, setNewMember] = useState({
@@ -492,10 +504,18 @@ export default function AdminDashboard() {
                   >
                     <Card className="hover:shadow-md transition-shadow">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                          {member.name}
-                        </CardTitle>
-                        <Badge variant="outline">{toBengaliNumber(member.accountNumber)}</Badge>
+                        <div className="flex items-center gap-3">
+                           <Avatar className="h-10 w-10">
+                              <AvatarImage src={member.profileImage} alt={member.name} />
+                              <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                           </Avatar>
+                           <div>
+                              <CardTitle className="text-sm font-medium">
+                                 {member.name}
+                              </CardTitle>
+                              <Badge variant="outline">{toBengaliNumber(member.accountNumber)}</Badge>
+                           </div>
+                        </div>
                       </CardHeader>
                       <CardContent>
                         <div className="text-xs text-muted-foreground mt-2 space-y-1">
@@ -505,15 +525,25 @@ export default function AdminDashboard() {
                              <span className="font-bold text-primary">
                                 ৳{toBengaliNumber(member.contributions.reduce((s, c) => s + c.amount, 0))}
                              </span>
-                             <Button
-                                variant="ghost"
-                                size="sm" 
-                                className="h-8 w-8 p-0"
-                                onClick={() => generateMemberPDF(member)}
-                                disabled={generatingPDF === member.id}
-                             >
-                                <FileText className="h-4 w-4" />
-                             </Button>
+                             <div className="flex gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setSelectedMember(member)}
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => generateMemberPDF(member)}
+                                    disabled={generatingPDF === member.id}
+                                >
+                                    <FileText className="h-4 w-4" />
+                                </Button>
+                             </div>
                           </div>
                         </div>
                       </CardContent>
@@ -556,7 +586,7 @@ export default function AdminDashboard() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[150px]">সদস্য</TableHead>
+                      <TableHead className="w-[200px]">সদস্য</TableHead>
                       {getFilteredMonths().map(m => (
                         <TableHead key={m.key} className="text-center min-w-[80px]">{m.monthName}</TableHead>
                       ))}
@@ -566,8 +596,16 @@ export default function AdminDashboard() {
                     {members.map(member => (
                       <TableRow key={member.id}>
                         <TableCell className="font-medium">
-                           <div>{member.name}</div>
-                           <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
+                           <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                 <AvatarImage src={member.profileImage} alt={member.name} />
+                                 <AvatarFallback className="text-xs">{member.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                 <div className="text-sm">{member.name}</div>
+                                 <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
+                              </div>
+                           </div>
                         </TableCell>
                         {getFilteredMonths().map(m => {
                           const paid = member.contributions.find(c => c.month === m.month && c.year === m.year)
@@ -713,6 +751,91 @@ export default function AdminDashboard() {
             </DialogFooter>
           </form>
         </DialogContent>
+      </Dialog>
+
+      {/* Member Details Dialog */}
+      <Dialog open={!!selectedMember} onOpenChange={(open) => !open && setSelectedMember(null)}>
+         <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+               <DialogTitle>সদস্যের বিস্তারিত তথ্য</DialogTitle>
+            </DialogHeader>
+            {selectedMember && (
+               <div className="space-y-6">
+                  <div className="flex justify-center">
+                     <div className="flex flex-col items-center gap-2">
+                        <Avatar className="h-32 w-32 border-4 border-muted">
+                           <AvatarImage src={selectedMember.profileImage} alt={selectedMember.name} />
+                           <AvatarFallback className="text-4xl">{selectedMember.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="text-center">
+                           <h3 className="text-xl font-bold">{selectedMember.name}</h3>
+                           <Badge variant="secondary" className="mt-1">
+                              AC: {toBengaliNumber(selectedMember.accountNumber)}
+                           </Badge>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-3 border-t pt-4">
+                     <h4 className="font-semibold text-muted-foreground">ব্যক্তিগত তথ্য</h4>
+                     <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                           <span className="block text-muted-foreground text-xs">ফোন</span>
+                           <span>{toBengaliNumber(selectedMember.phone || "তথ্য নেই")}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">ইমেইল</span>
+                           <span>{selectedMember.email || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">জন্মতারিখ</span>
+                           <span>{selectedMember.dob || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">এনআইডি/জন্ম নিবন্ধন</span>
+                           <span>{selectedMember.nid || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">বাবার নাম</span>
+                           <span>{selectedMember.fatherName || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">মায়ের নাম</span>
+                           <span>{selectedMember.motherName || "তথ্য নেই"}</span>
+                        </div>
+                        <div className="col-span-2">
+                           <span className="block text-muted-foreground text-xs">ঠিকানা</span>
+                           <span>{selectedMember.address || "তথ্য নেই"}</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-3 border-t pt-4">
+                     <h4 className="font-semibold text-muted-foreground">নমিনির তথ্য</h4>
+                     <div className="flex items-start gap-4">
+                        <Avatar className="h-16 w-16 border-2 border-muted">
+                           <AvatarImage src={selectedMember.nomineeImage} alt="Nominee" />
+                           <AvatarFallback>N</AvatarFallback>
+                        </Avatar>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm flex-1">
+                           <div>
+                              <span className="block text-muted-foreground text-xs">নাম</span>
+                              <span>{selectedMember.nomineeName || "তথ্য নেই"}</span>
+                           </div>
+                           <div>
+                              <span className="block text-muted-foreground text-xs">সম্পর্ক</span>
+                              <span>{selectedMember.nomineeRelation || "তথ্য নেই"}</span>
+                           </div>
+                           <div className="col-span-2">
+                              <span className="block text-muted-foreground text-xs">এনআইডি/জন্ম নিবন্ধন</span>
+                              <span>{selectedMember.nomineeNid || "তথ্য নেই"}</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            )}
+         </DialogContent>
       </Dialog>
     </div>
   )
