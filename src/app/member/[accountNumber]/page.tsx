@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface Member {
   id: string
@@ -30,6 +31,8 @@ interface Member {
   nomineeName?: string
   nomineeNid?: string
   nomineeRelation?: string
+  profileImage?: string
+  nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
 }
@@ -64,6 +67,8 @@ export default function MemberDashboard() {
 
   // Form state
   const [formData, setFormData] = useState<Partial<Member>>({})
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [nomineeImageFile, setNomineeImageFile] = useState<File | null>(null)
 
   useEffect(() => {
     fetchMemberData()
@@ -114,16 +119,35 @@ export default function MemberDashboard() {
     e.preventDefault()
     setSaving(true)
     try {
+      const data = new FormData()
+
+      // Append text fields
+      Object.keys(formData).forEach(key => {
+        const value = formData[key as keyof Member]
+        if (value) {
+          data.append(key, value as string)
+        }
+      })
+
+      // Append files
+      if (profileImageFile) {
+        data.append("profileImage", profileImageFile)
+      }
+      if (nomineeImageFile) {
+        data.append("nomineeImage", nomineeImageFile)
+      }
+
       const response = await fetch(`/api/member/${accountNumber}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: data,
       })
 
       if (response.ok) {
         const updatedMember = await response.json()
         setMember((prev) => prev ? { ...prev, ...updatedMember } : null)
         setIsEditing(false)
+        setProfileImageFile(null)
+        setNomineeImageFile(null)
         toast.success("প্রোফাইল আপডেট সফল হয়েছে")
       } else {
         toast.error("প্রোফাইল আপডেট ব্যর্থ হয়েছে")
@@ -223,10 +247,13 @@ export default function MemberDashboard() {
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b">
         <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
-              {member.name.charAt(0)}
-            </div>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10 border-2 border-primary">
+              <AvatarImage src={member.profileImage} alt={member.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground font-bold">
+                {member.name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
             <div>
               <h1 className="text-sm font-semibold leading-tight">{member.name}</h1>
               <p className="text-xs text-muted-foreground">AC: {member.accountNumber}</p>
@@ -344,6 +371,28 @@ export default function MemberDashboard() {
                       </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
+                      {/* Photo Uploads */}
+                      <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="profileImage">আপনার ছবি</Label>
+                            <Input
+                                id="profileImage"
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)}
+                            />
+                         </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="nomineeImage">নমিনির ছবি</Label>
+                            <Input
+                                id="nomineeImage"
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setNomineeImageFile(e.target.files?.[0] || null)}
+                            />
+                         </div>
+                      </div>
+
                       {/* Basic Info */}
                       <div className="space-y-2">
                         <Label htmlFor="phone">মোবাইল নম্বর</Label>
@@ -413,7 +462,22 @@ export default function MemberDashboard() {
                   </DialogContent>
                 </Dialog>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+
+                {/* Profile Image Display */}
+                <div className="flex justify-center mb-6">
+                   <div className="flex flex-col items-center gap-2">
+                      <div className="h-32 w-32 rounded-full border-4 border-muted overflow-hidden bg-muted flex items-center justify-center relative">
+                         {member.profileImage ? (
+                            <img src={member.profileImage} alt="Profile" className="h-full w-full object-cover" />
+                         ) : (
+                            <User className="h-16 w-16 text-muted-foreground" />
+                         )}
+                      </div>
+                      <Badge variant="outline">আপনার ছবি</Badge>
+                   </div>
+                </div>
+
                 <div className="grid gap-1">
                   <p className="text-sm font-medium leading-none">নাম</p>
                   <p className="text-sm text-muted-foreground">{member.name}</p>
@@ -458,7 +522,22 @@ export default function MemberDashboard() {
                 </div>
 
                 <div className="border-t pt-4 mt-4">
-                   <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
+                   <h4 className="font-semibold mb-4">নমিনির তথ্য</h4>
+
+                   {/* Nominee Image Display */}
+                   <div className="flex justify-start mb-6">
+                      <div className="flex flex-col items-center gap-2">
+                         <div className="h-24 w-24 rounded-full border-4 border-muted overflow-hidden bg-muted flex items-center justify-center relative">
+                            {member.nomineeImage ? (
+                               <img src={member.nomineeImage} alt="Nominee" className="h-full w-full object-cover" />
+                            ) : (
+                               <User className="h-10 w-10 text-muted-foreground" />
+                            )}
+                         </div>
+                         <Badge variant="outline">নমিনির ছবি</Badge>
+                      </div>
+                   </div>
+
                    <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-1">
                          <p className="text-sm font-medium leading-none">নাম</p>
