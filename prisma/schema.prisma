@@ -23,14 +23,22 @@ model Admin {
 }
 
 model Member {
-  id            String   @id @default(cuid())
-  accountNumber String   @unique
-  name          String
-  phone         String?
-  email         String?
-  address       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  accountNumber   String   @unique
+  name            String
+  phone           String?
+  email           String?
+  address         String?
+  dob             String?
+  nid             String?
+  fatherName      String?
+  motherName      String?
+  maritalStatus   String?
+  nomineeName     String?
+  nomineeNid      String?
+  nomineeRelation String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
   contributions Contribution[]
 }

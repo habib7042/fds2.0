@@ -42,3 +42,73 @@ export async function GET(
     )
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ accountNumber: string }> }
+) {
+  try {
+    const { accountNumber } = await params
+    const body = await request.json()
+
+    // Whitelist fields that can be updated
+    const {
+      dob,
+      nid,
+      fatherName,
+      motherName,
+      maritalStatus,
+      nomineeName,
+      nomineeNid,
+      nomineeRelation,
+      phone,
+      email,
+      address
+    } = body
+
+    if (!accountNumber || accountNumber.length !== 4) {
+      return NextResponse.json(
+        { error: "Invalid account number" },
+        { status: 400 }
+      )
+    }
+
+    // Check if member exists
+    const member = await db.member.findUnique({
+      where: { accountNumber }
+    })
+
+    if (!member) {
+      return NextResponse.json(
+        { error: "Member not found" },
+        { status: 404 }
+      )
+    }
+
+    // Update member
+    const updatedMember = await db.member.update({
+      where: { accountNumber },
+      data: {
+        dob,
+        nid,
+        fatherName,
+        motherName,
+        maritalStatus,
+        nomineeName,
+        nomineeNid,
+        nomineeRelation,
+        phone,
+        email,
+        address
+      }
+    })
+
+    return NextResponse.json(updatedMember)
+  } catch (error) {
+    console.error("Member update error:", error)
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}

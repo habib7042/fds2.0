@@ -1,14 +1,19 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
 
 interface Member {
   id: string
@@ -17,6 +22,14 @@ interface Member {
   phone?: string
   email?: string
   address?: string
+  dob?: string
+  nid?: string
+  fatherName?: string
+  motherName?: string
+  maritalStatus?: string
+  nomineeName?: string
+  nomineeNid?: string
+  nomineeRelation?: string
   createdAt: string
   contributions: Contribution[]
 }
@@ -42,13 +55,37 @@ export default function MemberDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+
   const params = useParams()
   const router = useRouter()
   const accountNumber = params.accountNumber as string
 
+  // Form state
+  const [formData, setFormData] = useState<Partial<Member>>({})
+
   useEffect(() => {
     fetchMemberData()
   }, [accountNumber])
+
+  useEffect(() => {
+    if (member) {
+      setFormData({
+        dob: member.dob || "",
+        nid: member.nid || "",
+        fatherName: member.fatherName || "",
+        motherName: member.motherName || "",
+        maritalStatus: member.maritalStatus || "",
+        nomineeName: member.nomineeName || "",
+        nomineeNid: member.nomineeNid || "",
+        nomineeRelation: member.nomineeRelation || "",
+        phone: member.phone || "",
+        email: member.email || "",
+        address: member.address || "",
+      })
+    }
+  }, [member])
 
   const fetchMemberData = async () => {
     try {
@@ -71,6 +108,31 @@ export default function MemberDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("memberAccount")
     router.push("/")
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/member/${accountNumber}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      })
+
+      if (response.ok) {
+        const updatedMember = await response.json()
+        setMember((prev) => prev ? { ...prev, ...updatedMember } : null)
+        setIsEditing(false)
+        toast.success("প্রোফাইল আপডেট সফল হয়েছে")
+      } else {
+        toast.error("প্রোফাইল আপডেট ব্যর্থ হয়েছে")
+      }
+    } catch (error) {
+      toast.error("নেটওয়ার্ক ত্রুটি হয়েছে")
+    } finally {
+      setSaving(false)
+    }
   }
 
   const getMonthName = (month: string) => {
@@ -266,37 +328,151 @@ export default function MemberDashboard() {
 
           <TabsContent value="profile">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
+                <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4 mr-2" /> এডিট করুন
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>প্রোফাইল এডিট করুন</DialogTitle>
+                      <DialogDescription>
+                        আপনার তথ্যে পরিবর্তন এনে সংরক্ষণ করুন।
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
+                      {/* Basic Info */}
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">মোবাইল নম্বর</Label>
+                        <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="email">ইমেইল</Label>
+                         <Input id="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="address">ঠিকানা</Label>
+                         <Textarea id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="dob">জন্মতারিখ</Label>
+                            <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} />
+                         </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="maritalStatus">বৈবাহিক অবস্থা</Label>
+                            <Select value={formData.maritalStatus} onValueChange={(v) => setFormData({...formData, maritalStatus: v})}>
+                               <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                               <SelectContent>
+                                  <SelectItem value="married">বিবাহিত</SelectItem>
+                                  <SelectItem value="unmarried">অবিবাহিত</SelectItem>
+                               </SelectContent>
+                            </Select>
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="nid">জাতীয় পরিচয়পত্র/জন্ম নিবন্ধন নম্বর</Label>
+                         <Input id="nid" value={formData.nid} onChange={(e) => setFormData({...formData, nid: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="fatherName">বাবার নাম</Label>
+                         <Input id="fatherName" value={formData.fatherName} onChange={(e) => setFormData({...formData, fatherName: e.target.value})} />
+                      </div>
+                      <div className="space-y-2">
+                         <Label htmlFor="motherName">মায়ের নাম</Label>
+                         <Input id="motherName" value={formData.motherName} onChange={(e) => setFormData({...formData, motherName: e.target.value})} />
+                      </div>
+
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
+                        <div className="space-y-4">
+                           <div className="space-y-2">
+                              <Label htmlFor="nomineeName">নমিনির নাম</Label>
+                              <Input id="nomineeName" value={formData.nomineeName} onChange={(e) => setFormData({...formData, nomineeName: e.target.value})} />
+                           </div>
+                           <div className="space-y-2">
+                              <Label htmlFor="nomineeRelation">সম্পর্ক</Label>
+                              <Input id="nomineeRelation" value={formData.nomineeRelation} onChange={(e) => setFormData({...formData, nomineeRelation: e.target.value})} />
+                           </div>
+                           <div className="space-y-2">
+                              <Label htmlFor="nomineeNid">নমিনির এনআইডি/জন্ম নিবন্ধন</Label>
+                              <Input id="nomineeNid" value={formData.nomineeNid} onChange={(e) => setFormData({...formData, nomineeNid: e.target.value})} />
+                           </div>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button type="submit" disabled={saving}>
+                           {saving ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">নাম</p>
-                    <p className="text-sm text-muted-foreground">{member.name}</p>
-                  </div>
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium leading-none">নাম</p>
+                  <p className="text-sm text-muted-foreground">{member.name}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">ফোন</p>
-                    <p className="text-sm text-muted-foreground">{member.phone || "N/A"}</p>
-                  </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">একাউন্ট নম্বর</p>
+                   <p className="text-sm text-muted-foreground">{member.accountNumber}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">ইমেইল</p>
-                    <p className="text-sm text-muted-foreground">{member.email || "N/A"}</p>
-                  </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ফোন</p>
+                   <p className="text-sm text-muted-foreground">{member.phone || "তথ্য নেই"}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">ঠিকানা</p>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{member.address || "N/A"}</p>
-                  </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ইমেইল</p>
+                   <p className="text-sm text-muted-foreground">{member.email || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ঠিকানা</p>
+                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{member.address || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">জন্মতারিখ</p>
+                   <p className="text-sm text-muted-foreground">{member.dob || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">এনআইডি/জন্ম নিবন্ধন</p>
+                   <p className="text-sm text-muted-foreground">{member.nid || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">বাবার নাম</p>
+                   <p className="text-sm text-muted-foreground">{member.fatherName || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">মায়ের নাম</p>
+                   <p className="text-sm text-muted-foreground">{member.motherName || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">বৈবাহিক অবস্থা</p>
+                   <p className="text-sm text-muted-foreground">
+                      {member.maritalStatus === "married" ? "বিবাহিত" : member.maritalStatus === "unmarried" ? "অবিবাহিত" : "তথ্য নেই"}
+                   </p>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                   <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-1">
+                         <p className="text-sm font-medium leading-none">নাম</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeName || "তথ্য নেই"}</p>
+                      </div>
+                      <div className="grid gap-1">
+                         <p className="text-sm font-medium leading-none">সম্পর্ক</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeRelation || "তথ্য নেই"}</p>
+                      </div>
+                      <div className="grid gap-1 col-span-2">
+                         <p className="text-sm font-medium leading-none">এনআইডি/জন্ম নিবন্ধন</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeNid || "তথ্য নেই"}</p>
+                      </div>
+                   </div>
                 </div>
               </CardContent>
             </Card>
