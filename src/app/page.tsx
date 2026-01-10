@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [adminUsername, setAdminUsername] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
   const [accountNumber, setAccountNumber] = useState("")
+  const [mobileNumber, setMobileNumber] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -61,18 +62,33 @@ export default function LoginPage() {
       setError("Account number must be 4 digits")
       return
     }
+    if (!mobileNumber) {
+      setError("Mobile number is required")
+      return
+    }
     
     setLoading(true)
     setError("")
 
     try {
-      const response = await fetch(`/api/member/${accountNumber}`)
+      const response = await fetch("/api/auth/member-login", {
+        method: "POST",
+        headers: {
+           "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+           accountNumber,
+           phone: mobileNumber
+        })
+      })
+
       if (response.ok) {
-        const member = await response.json()
+        // We don't really use the returned member object yet, just the success status
         localStorage.setItem("memberAccount", accountNumber)
         router.push(`/member/${accountNumber}`)
       } else {
-        setError("Member not found")
+        const data = await response.json()
+        setError(data.error || "Login failed")
       }
     } catch (err) {
       setError("Network error occurred")
@@ -199,8 +215,20 @@ export default function LoginPage() {
                                  className="text-center text-xl tracking-[0.5em] h-12 font-mono"
                               />
                            </div>
+                           <div className="space-y-2">
+                              <Label htmlFor="mobileNumber">মোবাইল নম্বর</Label>
+                              <Input
+                                 id="mobileNumber"
+                                 type="tel"
+                                 value={mobileNumber}
+                                 onChange={(e) => setMobileNumber(e.target.value)}
+                                 placeholder="017xxxxxxxx"
+                                 required
+                                 className="h-10"
+                              />
+                           </div>
                            <Button type="submit" className="w-full h-10 text-base" disabled={loading}>
-                              {loading ? "খোঁজা হচ্ছে..." : "একাউন্ট দেখুন"}
+                              {loading ? "যাচাই করা হচ্ছে..." : "একাউন্ট দেখুন"}
                            </Button>
                         </form>
                      </TabsContent>
