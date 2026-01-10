@@ -1,6 +1,0 @@
-
-> nextjs_tailwind_shadcn_ts@0.1.0 start
-> NODE_ENV=production tsx server.ts 2>&1 | tee server.log
-
-> Ready on http://0.0.0.0:3000
-> Socket.IO server running at ws://0.0.0.0:3000/api/socketio
