@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Handshake, ArrowRight, ShieldCheck, Lock } from "lucide-react"
 import Link from "next/link"
+import { InstallPWA } from "@/components/install-pwa"
 
 export default function LoginPage() {
   const [adminUsername, setAdminUsername] = useState("")
@@ -101,7 +102,7 @@ export default function LoginPage() {
            </p>
         </div>
 
-        <div className="z-10 mt-12">
+        <div className="z-10 mt-12 space-y-8">
            <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
               <div className="flex items-center gap-2">
                  <ShieldCheck className="w-5 h-5 text-green-600" /> নিরাপদ
@@ -113,6 +114,8 @@ export default function LoginPage() {
                  <Handshake className="w-5 h-5 text-primary" /> বিশ্বস্ত
               </div>
            </div>
+
+           <InstallPWA />
         </div>
 
         {/* Decorative Circles */}
@@ -211,10 +214,15 @@ export default function LoginPage() {
                </CardContent>
             </Card>
 
-            <div className="text-center pt-4">
+            <div className="text-center pt-4 flex flex-col items-center gap-4">
                <Link href="/policy" className="inline-flex items-center text-sm font-medium text-primary hover:underline transition-all group">
                   আমাদের নীতি ও বিধিমালা পড়ুন <ArrowRight className="ml-1 w-4 h-4 transition-transform group-hover:translate-x-1" />
                </Link>
+
+               {/* Mobile only PWA install button */}
+               <div className="md:hidden">
+                  <InstallPWA />
+               </div>
             </div>
          </motion.div>
 
