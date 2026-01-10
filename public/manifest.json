@@ -1,0 +1,21 @@
+{
+  "name": "Friends Development Society",
+  "short_name": "FDS",
+  "description": "Friends Development Society (FDS) - বন্ধুত্ব, সহযোগিতা ও সমৃদ্ধির প্রতীক",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
