@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search } from "lucide-react"
+import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 
 interface Member {
@@ -191,6 +191,11 @@ export default function AdminDashboard() {
     return String(lastNumber + 1).padStart(4, '0')
   }
 
+  const toBengaliNumber = (num: number | string) => {
+    const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
+  }
+
   const getMonthName = (month: string) => {
     const months: { [key: string]: string } = {
       "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
@@ -242,6 +247,12 @@ export default function AdminDashboard() {
     return { paidMembers, unpaidMembers, totalAmount }
   }
 
+  const getTotalFund = () => {
+    return members.reduce((sum, member) => {
+      return sum + member.contributions.reduce((mSum, c) => mSum + c.amount, 0);
+    }, 0);
+  }
+
   const getMonthlyData = () => {
     const data: { name: string; total: number }[] = []
     const today = new Date()
@@ -251,7 +262,7 @@ export default function AdminDashboard() {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
       const monthStr = String(d.getMonth() + 1).padStart(2, '0')
       const year = d.getFullYear()
-      const name = `${getMonthName(monthStr)} ${year}`
+      const name = `${getMonthName(monthStr)} ${toBengaliNumber(year)}`
 
       let total = 0
       members.forEach(member => {
@@ -322,8 +333,8 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p><strong>নাম:</strong> ${member.name}</p>
-            <p><strong>একাউন্ট নম্বর:</strong> ${member.accountNumber}</p>
-            <p><strong>মোট চাঁদা:</strong> ৳${totalContributions}</p>
+            <p><strong>একাউন্ট নম্বর:</strong> ${toBengaliNumber(member.accountNumber)}</p>
+            <p><strong>মোট চাঁদা:</strong> ৳${toBengaliNumber(totalContributions)}</p>
           </div>
           <table>
             <thead>
@@ -333,8 +344,8 @@ export default function AdminDashboard() {
               ${member.contributions.map(c => `
                 <tr>
                   <td>${getMonthName(c.month)}</td>
-                  <td>${c.year}</td>
-                  <td>৳${c.amount}</td>
+                  <td>${toBengaliNumber(c.year)}</td>
+                  <td>৳${toBengaliNumber(c.amount)}</td>
                   <td>${new Date(c.paymentDate).toLocaleDateString('bn-BD')}</td>
                 </tr>
               `).join('')}
@@ -412,23 +423,32 @@ export default function AdminDashboard() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">মোট সদস্য</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{members.length}</div>
+              <div className="text-2xl font-bold">{toBengaliNumber(members.length)}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট জমা (চলতি মাস)</CardTitle>
+              <CardTitle className="text-sm font-medium">মোট তহবিল</CardTitle>
+              <Wallet className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund())}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">জমা (চলতি মাস)</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">৳{getPaymentStats().totalAmount}</div>
+              <div className="text-2xl font-bold">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div>
             </CardContent>
           </Card>
            <Card>
@@ -437,7 +457,7 @@ export default function AdminDashboard() {
               <AlertCircle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">{getPaymentStats().unpaidMembers}</div>
+              <div className="text-2xl font-bold text-destructive">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div>
             </CardContent>
           </Card>
         </div>
@@ -475,15 +495,15 @@ export default function AdminDashboard() {
                         <CardTitle className="text-sm font-medium">
                           {member.name}
                         </CardTitle>
-                        <Badge variant="outline">{member.accountNumber}</Badge>
+                        <Badge variant="outline">{toBengaliNumber(member.accountNumber)}</Badge>
                       </CardHeader>
                       <CardContent>
                         <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                          <p>{member.phone || "ফোন নম্বর নেই"}</p>
+                          <p>{toBengaliNumber(member.phone || "ফোন নম্বর নেই")}</p>
                           <p>যোগদান: {new Date(member.createdAt).toLocaleDateString('bn-BD')}</p>
                           <div className="pt-2 flex justify-between items-center">
                              <span className="font-bold text-primary">
-                                ৳{member.contributions.reduce((s, c) => s + c.amount, 0)}
+                                ৳{toBengaliNumber(member.contributions.reduce((s, c) => s + c.amount, 0))}
                              </span>
                              <Button
                                 variant="ghost"
@@ -514,7 +534,7 @@ export default function AdminDashboard() {
                          <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                         {[2023, 2024, 2025, 2026].map(y => <SelectItem key={y} value={y.toString()}>{y}</SelectItem>)}
+                         {[2023, 2024, 2025, 2026].map(y => <SelectItem key={y} value={y.toString()}>{toBengaliNumber(y)}</SelectItem>)}
                       </SelectContent>
                    </Select>
                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -547,14 +567,14 @@ export default function AdminDashboard() {
                       <TableRow key={member.id}>
                         <TableCell className="font-medium">
                            <div>{member.name}</div>
-                           <div className="text-xs text-muted-foreground">{member.accountNumber}</div>
+                           <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
                         </TableCell>
                         {getFilteredMonths().map(m => {
                           const paid = member.contributions.find(c => c.month === m.month && c.year === m.year)
                           return (
                             <TableCell key={m.key} className="text-center p-2">
                               {paid ? (
-                                <div className="bg-green-100 text-green-700 rounded text-xs py-1">৳{paid.amount}</div>
+                                <div className="bg-green-100 text-green-700 rounded text-xs py-1">৳{toBengaliNumber(paid.amount)}</div>
                               ) : (
                                 <div className="bg-red-50 text-red-300 rounded text-xs py-1">-</div>
                               )}
