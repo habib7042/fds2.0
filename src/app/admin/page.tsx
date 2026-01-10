@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 
 interface Member {
   id: string
@@ -240,6 +241,53 @@ export default function AdminDashboard() {
 
     return { paidMembers, unpaidMembers, totalAmount }
   }
+
+  const getMonthlyData = () => {
+    const data: { name: string; total: number }[] = []
+    const today = new Date()
+
+    // Generate last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      const name = `${getMonthName(monthStr)} ${year}`
+
+      let total = 0
+      members.forEach(member => {
+        member.contributions.forEach(c => {
+          if (c.month === monthStr && c.year === year) {
+            total += c.amount
+          }
+        })
+      })
+
+      data.push({ name, total })
+    }
+    return data
+  }
+
+  const getCurrentMonthPaymentData = () => {
+    const today = new Date()
+    const currentMonth = String(today.getMonth() + 1).padStart(2, '0')
+    const currentYear = today.getFullYear()
+
+    let paid = 0
+    let unpaid = 0
+
+    members.forEach(member => {
+       const hasPaid = member.contributions.some(c => c.month === currentMonth && c.year === currentYear)
+       if (hasPaid) paid++
+       else unpaid++
+    })
+
+    return [
+      { name: 'পরিশোধিত', value: paid },
+      { name: 'বকেয়া', value: unpaid }
+    ]
+  }
+
+  const PIE_COLORS = ['#16a34a', '#dc2626'];
 
   const generateMemberPDF = async (member: Member) => {
     setGeneratingPDF(member.id)
@@ -522,12 +570,54 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="overview">
-             <Card>
-                <CardHeader><CardTitle>সারসংক্ষেপ শীঘ্রই আসছে</CardTitle></CardHeader>
-                <CardContent className="text-muted-foreground">
-                   আরো বিস্তারিত গ্রাফ এবং চার্ট পরবর্তী আপডেটে যুক্ত করা হবে।
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="h-[400px] flex flex-col">
+                <CardHeader>
+                  <CardTitle>মাসিক আয় (সর্বশেষ ৬ মাস)</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={getMonthlyData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" fontSize={12} tickMargin={10} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="total" name="মোট টাকা" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
-             </Card>
+              </Card>
+
+              <Card className="h-[400px] flex flex-col">
+                <CardHeader>
+                  <CardTitle>চলতি মাসের পেমেন্ট স্ট্যাটাস</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={getCurrentMonthPaymentData()}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        paddingAngle={5}
+                        dataKey="value"
+                        label
+                      >
+                        {getCurrentMonthPaymentData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
