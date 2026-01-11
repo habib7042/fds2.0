@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -11,15 +11,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, CheckCircle, XCircle, Banknote } from "lucide-react"
+import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
+
+interface FundAdjustment {
+  id: string
+  type: "CHARGE" | "INTEREST"
+  amount: number
+  date: string
+  description?: string
+}
+
+interface Adjustment {
+  id: string
+  memberId: string
+  type: "CHARGE" | "INTEREST"
+  amount: number
+  date: string
+  description?: string
+}
 
 interface Member {
   id: string
@@ -40,6 +57,7 @@ interface Member {
   nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
+  adjustments: Adjustment[]
 }
 
 interface Contribution {
@@ -75,6 +93,7 @@ export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
+  const [fundAdjustments, setFundAdjustments] = useState<FundAdjustment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
@@ -119,6 +138,7 @@ export default function AdminDashboard() {
     checkAuth()
     fetchMembers()
     fetchPolls()
+    fetchFundAdjustments()
   }, [])
 
   useEffect(() => {
@@ -173,6 +193,17 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("Failed to fetch polls")
+    }
+  }
+
+  const fetchFundAdjustments = async () => {
+    try {
+        const response = await fetch("/api/admin/adjustments")
+        if (response.ok) {
+            setFundAdjustments(await response.json())
+        }
+    } catch (e) {
+        console.error("Failed to fetch fund adjustments")
     }
   }
 
@@ -291,6 +322,8 @@ export default function AdminDashboard() {
           if (res.ok) {
               toast.success("সফলভাবে সম্পন্ন হয়েছে")
               setAdjustment({ type: "", amount: "", description: "", target: "all" })
+              fetchFundAdjustments()
+              if (adjustment.target !== 'all') fetchMembers()
           } else {
               toast.error("ব্যর্থ হয়েছে")
           }
@@ -304,16 +337,8 @@ export default function AdminDashboard() {
     router.push("/")
   }
 
-  const generateAccountNumber = () => {
-    const lastMember = members.reduce((prev, current) => 
-      parseInt(prev.accountNumber) > parseInt(current.accountNumber) ? prev : current
-    , members[0])
-    
-    const lastNumber = lastMember ? parseInt(lastMember.accountNumber) : 0
-    return String(lastNumber + 1).padStart(4, '0')
-  }
-
   const toBengaliNumber = (num: number | string) => {
+    if (num === undefined || num === null) return "০"
     const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
     return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
   }
@@ -370,9 +395,21 @@ export default function AdminDashboard() {
   }
 
   const getTotalFund = () => {
-    return members.reduce((sum, member) => {
+    const contributions = members.reduce((sum, member) => {
       return sum + member.contributions.reduce((mSum, c) => mSum + c.amount, 0);
     }, 0);
+
+    const globalAdjustments = fundAdjustments.reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+    }, 0);
+
+    const personalAdjustments = members.reduce((sum, member) => {
+        return sum + (member.adjustments || []).reduce((mSum, adj) => {
+             return adj.type === 'INTEREST' ? mSum + adj.amount : mSum - adj.amount
+        }, 0)
+    }, 0);
+
+    return contributions + globalAdjustments + personalAdjustments;
   }
 
   const getMonthlyData = () => {
@@ -429,9 +466,20 @@ export default function AdminDashboard() {
       if (!printWindow) throw new Error('Unable to open print window')
 
       const totalContributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
-      const currentYearContributions = member.contributions
-        .filter(c => c.year === new Date().getFullYear())
-        .reduce((sum, c) => sum + c.amount, 0)
+
+      // Calculate Personal Adjustments
+      const personalAdjSum = (member.adjustments || []).reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+
+      // Calculate Share of Global Adjustments
+      // Note: This matches the Member Dashboard logic
+      const globalAdjSum = fundAdjustments.reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+      const share = members.length > 0 ? globalAdjSum / members.length : 0
+
+      const totalBalance = totalContributions + personalAdjSum + share
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -446,6 +494,7 @@ export default function AdminDashboard() {
             table { width: 100%; border-collapse: collapse; margin: 20px 0; }
             th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             th { background-color: #f3f4f6; }
+            .summary { margin-top: 20px; font-weight: bold; }
           </style>
         </head>
         <body>
@@ -457,7 +506,11 @@ export default function AdminDashboard() {
             <p><strong>নাম:</strong> ${member.name}</p>
             <p><strong>একাউন্ট নম্বর:</strong> ${toBengaliNumber(member.accountNumber)}</p>
             <p><strong>মোট চাঁদা:</strong> ৳${toBengaliNumber(totalContributions)}</p>
+            <p><strong>মুনাফা/চার্জ (ব্যক্তিগত):</strong> ৳${toBengaliNumber(personalAdjSum.toFixed(2))}</p>
+            <p><strong>মুনাফা/চার্জ (শেয়ার):</strong> ৳${toBengaliNumber(share.toFixed(2))}</p>
+            <p class="summary"><strong>সর্বমোট স্থিতি:</strong> ৳${toBengaliNumber(totalBalance.toFixed(2))}</p>
           </div>
+          <h3>চাঁদার বিবরণ</h3>
           <table>
             <thead>
               <tr><th>মাস</th><th>বছর</th><th>পরিমাণ</th><th>তারিখ</th></tr>
@@ -567,7 +620,7 @@ export default function AdminDashboard() {
               <Wallet className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund())}</div>
+              <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div>
             </CardContent>
           </Card>
           <Card>
@@ -852,45 +905,83 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="financials">
-            <Card>
-              <CardHeader>
-                <CardTitle>আর্থিক ব্যবস্থাপনা</CardTitle>
-                <CardDescription>সকল সদস্যের জন্য চার্জ বা মুনাফা যোগ করুন</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleFinancialAdjustment} className="space-y-4 max-w-md">
-                    <div className="space-y-2">
-                        <Label>ধরন</Label>
-                        <Select onValueChange={v => setAdjustment({...adjustment, type: v})}>
-                            <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="CHARGE">ব্যাংক চার্জ (কর্তন)</SelectItem>
-                                <SelectItem value="INTEREST">ব্যাংক মুনাফা (যোগ)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="adj-amount">পরিমাণ (টাকা)</Label>
-                        <Input id="adj-amount" type="number" value={adjustment.amount} onChange={e => setAdjustment({...adjustment, amount: e.target.value})} placeholder="0.00" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="adj-desc">বিবরণ</Label>
-                        <Input id="adj-desc" value={adjustment.description} onChange={e => setAdjustment({...adjustment, description: e.target.value})} placeholder="যেমন: বাৎসরিক চার্জ" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>কাদের জন্য?</Label>
-                        <Select onValueChange={v => setAdjustment({...adjustment, target: v})} defaultValue="all">
-                            <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">সকল সদস্য</SelectItem>
-                                <SelectItem value="specific">নির্দিষ্ট সদস্য (শিঘ্রই আসছে)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <Button type="submit" disabled={loading}>সাবমিট করুন</Button>
-                </form>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>আর্থিক ব্যবস্থাপনা</CardTitle>
+                  <CardDescription>সকল সদস্যের জন্য চার্জ বা মুনাফা যোগ করুন</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleFinancialAdjustment} className="space-y-4">
+                      <div className="space-y-2">
+                          <Label>ধরন</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, type: v})}>
+                              <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="CHARGE">ব্যাংক চার্জ (কর্তন)</SelectItem>
+                                  <SelectItem value="INTEREST">ব্যাংক মুনাফা (যোগ)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="adj-amount">পরিমাণ (টাকা)</Label>
+                          <Input id="adj-amount" type="number" value={adjustment.amount} onChange={e => setAdjustment({...adjustment, amount: e.target.value})} placeholder="0.00" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="adj-desc">বিবরণ</Label>
+                          <Input id="adj-desc" value={adjustment.description} onChange={e => setAdjustment({...adjustment, description: e.target.value})} placeholder="যেমন: বাৎসরিক চার্জ" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label>কাদের জন্য?</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, target: v})} defaultValue="all">
+                              <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="all">সকল সদস্য</SelectItem>
+                                  <SelectItem value="specific">নির্দিষ্ট সদস্য (শিঘ্রই আসছে)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <Button type="submit" disabled={loading}>সাবমিট করুন</Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                  <CardHeader>
+                      <CardTitle>গ্লোবাল লেনদেন ইতিহাস</CardTitle>
+                      <CardDescription>সকল ফাণ্ড অ্যাডজাস্টমেন্ট</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[400px] overflow-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>তারিখ</TableHead>
+                                  <TableHead>ধরন</TableHead>
+                                  <TableHead>পরিমাণ</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {fundAdjustments.map((adj) => (
+                                  <TableRow key={adj.id}>
+                                      <TableCell>{new Date(adj.date).toLocaleDateString('bn-BD')}</TableCell>
+                                      <TableCell>
+                                          <Badge variant={adj.type === 'INTEREST' ? 'default' : 'destructive'}>
+                                              {adj.type === 'INTEREST' ? 'মুনাফা' : 'চার্জ'}
+                                          </Badge>
+                                      </TableCell>
+                                      <TableCell>৳{toBengaliNumber(adj.amount)}</TableCell>
+                                  </TableRow>
+                              ))}
+                              {fundAdjustments.length === 0 && (
+                                  <TableRow>
+                                      <TableCell colSpan={3} className="text-center text-muted-foreground">কোন লেনদেন নেই</TableCell>
+                                  </TableRow>
+                              )}
+                          </TableBody>
+                      </Table>
+                  </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -80,6 +80,15 @@ model AccountAdjustment {
   member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
+model FundAdjustment {
+  id          String   @id @default(cuid())
+  type        String   // "CHARGE" or "INTEREST"
+  amount      Float
+  date        DateTime @default(now())
+  description String?
+  createdAt   DateTime @default(now())
+}
+
 model PushSubscription {
   id        String   @id @default(cuid())
   memberId  String

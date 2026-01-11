@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
           orderBy: {
             paymentDate: "desc"
           }
-        }
+        },
+        adjustments: true
       },
       orderBy: {
         createdAt: "desc"

@@ -39,7 +39,13 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(member)
+    // Fetch global fund adjustments and member count for calculation
+    const fundAdjustments = await db.fundAdjustment.findMany({
+        orderBy: { date: "desc" }
+    })
+    const memberCount = await db.member.count()
+
+    return NextResponse.json({ ...member, fundAdjustments, memberCount })
   } catch (error) {
     console.error("Member lookup error:", error)
     return NextResponse.json(

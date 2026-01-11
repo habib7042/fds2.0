@@ -24,6 +24,14 @@ interface Adjustment {
   description?: string
 }
 
+interface FundAdjustment {
+  id: string
+  type: string
+  amount: number
+  date: string
+  description?: string
+}
+
 interface Member {
   id: string
   accountNumber: string
@@ -44,6 +52,8 @@ interface Member {
   createdAt: string
   contributions: Contribution[]
   adjustments: Adjustment[]
+  fundAdjustments: FundAdjustment[]
+  memberCount: number
 }
 
 interface Contribution {
@@ -233,9 +243,17 @@ export default function MemberDashboard() {
   const getTotalBalance = () => {
     if (!member) return 0
     const contributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
-    const interests = member.adjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + a.amount, 0) || 0
-    const charges = member.adjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + a.amount, 0) || 0
-    return contributions + interests - charges
+
+    // Personal Adjustments
+    const personalInterests = member.adjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + a.amount, 0) || 0
+    const personalCharges = member.adjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + a.amount, 0) || 0
+
+    // Global Adjustments (Share)
+    const memberCount = Math.max(1, member.memberCount)
+    const globalInterests = member.fundAdjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + (a.amount / memberCount), 0) || 0
+    const globalCharges = member.fundAdjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + (a.amount / memberCount), 0) || 0
+
+    return contributions + personalInterests - personalCharges + globalInterests - globalCharges
   }
 
   const getCurrentYearContributions = () => {
@@ -295,6 +313,12 @@ export default function MemberDashboard() {
                     date: new Date(a.date),
                     desc: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
                     amount: a.type === 'CHARGE' ? -a.amount : a.amount,
+                    type: a.type
+                })) || [])
+                .concat(member.fundAdjustments?.map(a => ({
+                    date: new Date(a.date),
+                    desc: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
+                    amount: a.type === 'CHARGE' ? -(a.amount / Math.max(1, member.memberCount)) : (a.amount / Math.max(1, member.memberCount)),
                     type: a.type
                 })) || [])
                 .sort((a, b) => b.date.getTime() - a.date.getTime())
@@ -381,7 +405,7 @@ export default function MemberDashboard() {
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                 <DollarSign className="h-6 w-6 text-primary mb-2" />
-                <div className="text-2xl font-bold text-primary">৳{getTotalBalance()}</div>
+                <div className="text-2xl font-bold text-primary">৳{getTotalBalance().toFixed(2)}</div>
                 <p className="text-xs text-muted-foreground">বর্তমান স্থিতি</p>
               </CardContent>
             </Card>
@@ -435,6 +459,14 @@ export default function MemberDashboard() {
                           date: a.date,
                           title: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
                           subtitle: a.description || ''
+                      })),
+                      ...(member.fundAdjustments || []).map(a => ({
+                          id: a.id,
+                          type: a.type,
+                          amount: a.amount / Math.max(1, member.memberCount),
+                          date: a.date,
+                          title: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
+                          subtitle: a.description || ''
                       }))
                   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -468,7 +500,7 @@ export default function MemberDashboard() {
                           </div>
                           <div className="text-right">
                             <span className={`block text-lg font-bold ${item.type === 'CHARGE' ? 'text-red-600' : 'text-green-600'}`}>
-                              {item.type === 'CHARGE' ? '-' : '+'}৳{item.amount}
+                              {item.type === 'CHARGE' ? '-' : '+'}৳{item.amount.toFixed(2)}
                             </span>
                           </div>
                         </div>

@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 
+export async function GET(request: NextRequest) {
+    try {
+        const adjustments = await db.fundAdjustment.findMany({
+            orderBy: { date: "desc" }
+        })
+        return NextResponse.json(adjustments)
+    } catch (error) {
+        return NextResponse.json({ error: "Failed to fetch adjustments" }, { status: 500 })
+    }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { type, amount, description, target, memberId } = await request.json()
@@ -9,22 +20,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 })
     }
 
-    // target can be 'all' or 'specific'
-    let count = 0;
-
     if (target === 'all') {
-        const members = await db.member.findMany();
-        const operations = members.map(m => db.accountAdjustment.create({
+        // Create GLOBAL FundAdjustment
+        await db.fundAdjustment.create({
             data: {
-                memberId: m.id,
                 type,
                 amount: parseFloat(amount),
                 description
             }
-        }));
-        await db.$transaction(operations);
-        count = members.length;
+        });
+        return NextResponse.json({ success: true, type: 'global' })
     } else if (target === 'specific' && memberId) {
+        // Keep existing logic for specific member adjustments
         await db.accountAdjustment.create({
             data: {
                 memberId,
@@ -33,12 +40,11 @@ export async function POST(request: NextRequest) {
                 description
             }
         });
-        count = 1;
+        return NextResponse.json({ success: true, type: 'specific' })
     } else {
         return NextResponse.json({ error: "Invalid target" }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true, count })
   } catch (error) {
     console.error("Adjustment error:", error)
     return NextResponse.json({ error: "Failed to create adjustment" }, { status: 500 })
