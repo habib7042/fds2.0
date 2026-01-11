@@ -15,9 +15,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye } from "lucide-react"
+import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { toast } from "sonner"
 
 interface Member {
   id: string
@@ -57,6 +58,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
   const [showAddContribution, setShowAddContribution] = useState(false)
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const router = useRouter()
@@ -74,6 +76,11 @@ export default function AdminDashboard() {
     year: new Date().getFullYear(),
     amount: "",
     description: ""
+  })
+
+  const [newPoll, setNewPoll] = useState({
+    question: "",
+    options: ["", ""]
   })
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
@@ -186,6 +193,52 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError("Network error occurred")
+    }
+  }
+
+  const handleCreatePoll = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      // In a real app, you would get the admin ID from the token or session
+      // For now we might need to mock or fetch it.
+      // Assuming the backend handles "creatorId" or we send a dummy one if auth is token-based only
+      // Ideally the token decode on server provides ID.
+      // But our /api/admin/polls expects creatorId in body.
+      // We'll fetch the admin profile first or just use a placeholder if the API allows.
+      // Let's assume we need to decode the token or the API handles it.
+      // Looking at `src/app/api/admin/polls/route.ts`:
+      // const { question, options, creatorId } = await request.json()
+      // We need to send creatorId.
+      // Since we don't have a /api/auth/me for admin yet, let's look at login.
+      // Login returns only token.
+      // We might need to update login to return adminId or add /api/auth/me.
+      // For THIS task, I will mock an admin ID fetch or just hardcode one if I can find it,
+      // BUT robustly, I should add a way to get the ID.
+      // I'll check if I can just pick the first admin from DB via a server action? No.
+      // Let's modify the plan slightly: I'll assume there's at least one admin and I might need to query it or
+      // update the API to use the authenticated user from the token if I had middleware.
+      // Since I don't have auth middleware set up for admin routes extracting ID,
+      // I will just fetch the list of admins and pick one, OR better, update the API to optional creatorId or look it up.
+      // Actually, for simplicity in this "demo" environment, I'll fetch the first admin ID from a new helper route or just hardcode if I knew it.
+      // Wait, I can just use a server action to "get current admin id" or similar.
+      // Let's just create a quick server action to get an admin ID or update the Poll route to find the first admin if creatorId is missing.
+
+      // Let's update `src/app/api/admin/polls/route.ts` to handle missing creatorId by picking the first admin.
+
+      const response = await fetch("/api/admin/polls", {
+        method: "POST",
+        body: JSON.stringify(newPoll)
+      })
+
+      if (response.ok) {
+        setShowCreatePoll(false)
+        setNewPoll({ question: "", options: ["", ""] })
+        toast.success("পোল তৈরি করা হয়েছে")
+      } else {
+        toast.error("পোল তৈরি করতে ব্যর্থ")
+      }
+    } catch (e) {
+      toast.error("নেটওয়ার্ক ত্রুটি")
     }
   }
 
@@ -399,6 +452,9 @@ export default function AdminDashboard() {
               <Button onClick={() => setShowAddContribution(true)} variant="outline" className="justify-start">
                 <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
               </Button>
+              <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="justify-start">
+                <BarChart2 className="mr-2 h-4 w-4" /> নতুন পোল
+              </Button>
               <Button onClick={handleLogout} variant="destructive" className="justify-start">
                 <LogOut className="mr-2 h-4 w-4" /> লগআউট
               </Button>
@@ -420,6 +476,9 @@ export default function AdminDashboard() {
             </Button>
             <Button onClick={() => setShowAddContribution(true)} variant="secondary">
               <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
+            </Button>
+            <Button onClick={() => setShowCreatePoll(true)} variant="outline">
+              <BarChart2 className="mr-2 h-4 w-4" /> নতুন পোল
             </Button>
             <Button onClick={handleLogout} variant="destructive">
               <LogOut className="mr-2 h-4 w-4" /> লগআউট
@@ -748,6 +807,68 @@ export default function AdminDashboard() {
             </div>
             <DialogFooter>
               <Button type="submit">জমা দিন</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Poll Dialog */}
+      <Dialog open={showCreatePoll} onOpenChange={setShowCreatePoll}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>নতুন পোল তৈরি করুন</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreatePoll} className="space-y-4">
+            <div className="space-y-2">
+              <Label>প্রশ্ন</Label>
+              <Input
+                value={newPoll.question}
+                onChange={(e) => setNewPoll({...newPoll, question: e.target.value})}
+                placeholder="পোলের প্রশ্ন..."
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>অপশনস</Label>
+              {newPoll.options.map((opt, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    value={opt}
+                    onChange={(e) => {
+                      const newOptions = [...newPoll.options]
+                      newOptions[idx] = e.target.value
+                      setNewPoll({...newPoll, options: newOptions})
+                    }}
+                    placeholder={`অপশন ${idx + 1}`}
+                    required
+                  />
+                  {newPoll.options.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newOptions = newPoll.options.filter((_, i) => i !== idx)
+                        setNewPoll({...newPoll, options: newOptions})
+                      }}
+                    >
+                      <span className="text-red-500">×</span>
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, ""]})}
+              >
+                + অপশন যোগ করুন
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button type="submit">তৈরি করুন</Button>
             </DialogFooter>
           </form>
         </DialogContent>

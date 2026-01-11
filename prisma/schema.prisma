@@ -20,6 +20,7 @@ model Admin {
   name      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  polls     Poll[]
 }
 
 model Member {
@@ -43,6 +44,10 @@ model Member {
   updatedAt       DateTime @updatedAt
   
   contributions Contribution[]
+  posts         Post[]
+  comments      Comment[]
+  likes         Like[]
+  votes         PollVote[]
 }
 
 model Contribution {
@@ -59,4 +64,75 @@ model Contribution {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
   
   @@unique([memberId, month, year])
+}
+
+model Post {
+  id        String    @id @default(cuid())
+  content   String
+  image     String?
+  authorId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  author    Member    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  likes     Like[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  postId    String
+  createdAt DateTime @default(now())
+
+  author    Member   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  authorId  String
+  postId    String
+  createdAt DateTime @default(now())
+
+  author    Member   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, postId])
+}
+
+model Poll {
+  id        String       @id @default(cuid())
+  question  String
+  creatorId String
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  creator   Admin        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  options   PollOption[]
+  votes     PollVote[]
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  text   String
+  pollId String
+
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  voterId  String
+  pollId   String
+  optionId String
+
+  voter    Member     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([voterId, pollId])
 }
