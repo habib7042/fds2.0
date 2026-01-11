@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, CheckCircle, XCircle } from "lucide-react"
+import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, CheckCircle, XCircle, Banknote } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
@@ -102,6 +102,13 @@ export default function AdminDashboard() {
   const [newPoll, setNewPoll] = useState({
     question: "",
     options: ["", ""]
+  })
+
+  const [adjustment, setAdjustment] = useState({
+      type: "",
+      amount: "",
+      description: "",
+      target: "all"
   })
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
@@ -267,6 +274,29 @@ export default function AdminDashboard() {
     } catch (e) {
       toast.error("নেটওয়ার্ক ত্রুটি")
     }
+  }
+
+  const handleFinancialAdjustment = async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!adjustment.type || !adjustment.amount) {
+          toast.error("অনুগ্রহ করে তথ্য পূরণ করুন")
+          return
+      }
+
+      try {
+          const res = await fetch("/api/admin/adjustments", {
+              method: "POST",
+              body: JSON.stringify(adjustment)
+          })
+          if (res.ok) {
+              toast.success("সফলভাবে সম্পন্ন হয়েছে")
+              setAdjustment({ type: "", amount: "", description: "", target: "all" })
+          } else {
+              toast.error("ব্যর্থ হয়েছে")
+          }
+      } catch (e) {
+          toast.error("ত্রুটি হয়েছে")
+      }
   }
 
   const handleLogout = () => {
@@ -561,11 +591,12 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
             <TabsTrigger value="members">সদস্য</TabsTrigger>
             <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
             <TabsTrigger value="polls">পোলস</TabsTrigger>
+            <TabsTrigger value="financials">অর্থ</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -665,9 +696,9 @@ export default function AdminDashboard() {
                             "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
                             "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
                          }).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-                      </SelectContent>
-                   </Select>
-                </div>
+                     </SelectContent>
+                  </Select>
+               </div>
               </CardHeader>
               <CardContent className="overflow-auto">
                 <Table>
@@ -818,6 +849,48 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="financials">
+            <Card>
+              <CardHeader>
+                <CardTitle>আর্থিক ব্যবস্থাপনা</CardTitle>
+                <CardDescription>সকল সদস্যের জন্য চার্জ বা মুনাফা যোগ করুন</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleFinancialAdjustment} className="space-y-4 max-w-md">
+                    <div className="space-y-2">
+                        <Label>ধরন</Label>
+                        <Select onValueChange={v => setAdjustment({...adjustment, type: v})}>
+                            <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="CHARGE">ব্যাংক চার্জ (কর্তন)</SelectItem>
+                                <SelectItem value="INTEREST">ব্যাংক মুনাফা (যোগ)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="adj-amount">পরিমাণ (টাকা)</Label>
+                        <Input id="adj-amount" type="number" value={adjustment.amount} onChange={e => setAdjustment({...adjustment, amount: e.target.value})} placeholder="0.00" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="adj-desc">বিবরণ</Label>
+                        <Input id="adj-desc" value={adjustment.description} onChange={e => setAdjustment({...adjustment, description: e.target.value})} placeholder="যেমন: বাৎসরিক চার্জ" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>কাদের জন্য?</Label>
+                        <Select onValueChange={v => setAdjustment({...adjustment, target: v})} defaultValue="all">
+                            <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">সকল সদস্য</SelectItem>
+                                <SelectItem value="specific">নির্দিষ্ট সদস্য (শিঘ্রই আসছে)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <Button type="submit" disabled={loading}>সাবমিট করুন</Button>
+                </form>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

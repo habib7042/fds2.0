@@ -48,6 +48,8 @@ model Member {
   comments      Comment[]
   likes         Like[]
   votes         PollVote[]
+  adjustments   AccountAdjustment[]
+  subscriptions PushSubscription[]
 }
 
 model Contribution {
@@ -64,6 +66,28 @@ model Contribution {
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
   
   @@unique([memberId, month, year])
+}
+
+model AccountAdjustment {
+  id          String   @id @default(cuid())
+  memberId    String
+  type        String   // "CHARGE" or "INTEREST"
+  amount      Float
+  date        DateTime @default(now())
+  description String?
+  createdAt   DateTime @default(now())
+
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  memberId  String
+  endpoint  String
+  keys      Json     // Stores p256dh and auth keys
+  createdAt DateTime @default(now())
+
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model Post {

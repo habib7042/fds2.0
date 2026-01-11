@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
+interface Adjustment {
+  id: string
+  type: string
+  amount: number
+  date: string
+  description?: string
+}
 
 interface Member {
   id: string
@@ -35,6 +43,7 @@ interface Member {
   nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
+  adjustments: Adjustment[]
 }
 
 interface Contribution {
@@ -53,6 +62,21 @@ const monthNames = {
   "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function MemberDashboard() {
   const [member, setMember] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
@@ -60,6 +84,7 @@ export default function MemberDashboard() {
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
 
   const params = useParams()
   const router = useRouter()
@@ -92,6 +117,15 @@ export default function MemberDashboard() {
     }
   }, [member])
 
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then(async (registration) => {
+        const sub = await registration.pushManager.getSubscription()
+        setIsSubscribed(!!sub)
+      })
+    }
+  }, [])
+
   const fetchMemberData = async () => {
     try {
       const response = await fetch(`/api/member/${accountNumber}`)
@@ -113,6 +147,39 @@ export default function MemberDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("memberAccount")
     router.push("/")
+  }
+
+  const handleSubscribe = async () => {
+    if (!member) return
+    if (!('serviceWorker' in navigator)) return
+
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
+      if (!vapidPublicKey) {
+          console.error("VAPID Public Key not found")
+          toast.error("Push notifications not configured")
+          return
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      })
+
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription, memberId: member.id })
+      })
+
+      setIsSubscribed(true)
+      toast.success("Notifications enabled!")
+    } catch (err) {
+      console.error("Subscription failed", err)
+      toast.error("Failed to enable notifications")
+    }
   }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -163,9 +230,12 @@ export default function MemberDashboard() {
     return monthNames[month as keyof typeof monthNames] || month
   }
 
-  const getTotalContributions = () => {
+  const getTotalBalance = () => {
     if (!member) return 0
-    return member.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
+    const contributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
+    const interests = member.adjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + a.amount, 0) || 0
+    const charges = member.adjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + a.amount, 0) || 0
+    return contributions + interests - charges
   }
 
   const getCurrentYearContributions = () => {
@@ -206,21 +276,33 @@ export default function MemberDashboard() {
           </div>
           <div class="summary">
             <p><strong>সদস্য:</strong> ${member.name} (${member.accountNumber})</p>
-            <p><strong>মোট জমা:</strong> ৳${getTotalContributions().toFixed(2)}</p>
+            <p><strong>মোট জমা:</strong> ৳${getTotalBalance().toFixed(2)}</p>
             <p><strong>তারিখ:</strong> ${new Date().toLocaleDateString('bn-BD')}</p>
           </div>
           <table>
             <thead>
-              <tr><th>মাস ও বছর</th><th>পরিমাণ</th><th>জমার তারিখ</th></tr>
+              <tr><th>বিবরণ</th><th>পরিমাণ</th><th>তারিখ</th></tr>
             </thead>
             <tbody>
               ${member.contributions
-                .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-                .map(c => `
+                .map(c => ({
+                    date: new Date(c.paymentDate),
+                    desc: `${getMonthName(c.month)} ${c.year} চাঁদা`,
+                    amount: c.amount,
+                    type: 'deposit'
+                }))
+                .concat(member.adjustments?.map(a => ({
+                    date: new Date(a.date),
+                    desc: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
+                    amount: a.type === 'CHARGE' ? -a.amount : a.amount,
+                    type: a.type
+                })) || [])
+                .sort((a, b) => b.date.getTime() - a.date.getTime())
+                .map(item => `
                 <tr>
-                  <td>${getMonthName(c.month)} ${c.year}</td>
-                  <td>৳${c.amount.toFixed(2)}</td>
-                  <td>${new Date(c.paymentDate).toLocaleDateString('bn-BD')}</td>
+                  <td>${item.desc}</td>
+                  <td style="color: ${item.amount < 0 ? 'red' : 'green'}">৳${Math.abs(item.amount).toFixed(2)}</td>
+                  <td>${item.date.toLocaleDateString('bn-BD')}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -260,6 +342,11 @@ export default function MemberDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isSubscribed && (
+                <Button variant="ghost" size="icon" onClick={handleSubscribe} className="text-primary">
+                    <Bell className="h-5 w-5" />
+                </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -294,8 +381,8 @@ export default function MemberDashboard() {
             <Card className="bg-primary/5 border-primary/20">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                 <DollarSign className="h-6 w-6 text-primary mb-2" />
-                <div className="text-2xl font-bold text-primary">৳{getTotalContributions()}</div>
-                <p className="text-xs text-muted-foreground">মোট জমা</p>
+                <div className="text-2xl font-bold text-primary">৳{getTotalBalance()}</div>
+                <p className="text-xs text-muted-foreground">বর্তমান স্থিতি</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -317,7 +404,7 @@ export default function MemberDashboard() {
         {/* Info & History Tabs */}
         <Tabs defaultValue="history" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="history">চাঁদার ইতিহাস</TabsTrigger>
+            <TabsTrigger value="history">লেনদেন ইতিহাস</TabsTrigger>
             <TabsTrigger value="profile">প্রোফাইল</TabsTrigger>
           </TabsList>
 
@@ -330,12 +417,38 @@ export default function MemberDashboard() {
             </div>
 
             <div className="space-y-3">
-              {member.contributions.length > 0 ? (
-                member.contributions
-                  .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-                  .map((contribution, index) => (
+              {/* Merge Contributions and Adjustments */}
+              {(() => {
+                  const allItems = [
+                      ...member.contributions.map(c => ({
+                          id: c.id,
+                          type: 'CONTRIBUTION',
+                          amount: c.amount,
+                          date: c.paymentDate,
+                          title: `${getMonthName(c.month)} ${c.year}`,
+                          subtitle: 'মাসিক চাঁদা'
+                      })),
+                      ...(member.adjustments || []).map(a => ({
+                          id: a.id,
+                          type: a.type,
+                          amount: a.amount,
+                          date: a.date,
+                          title: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
+                          subtitle: a.description || ''
+                      }))
+                  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+                  if (allItems.length === 0) {
+                      return (
+                        <div className="text-center py-10 text-muted-foreground">
+                          কোন লেনদেন নেই
+                        </div>
+                      )
+                  }
+
+                  return allItems.map((item, index) => (
                     <motion.div
-                      key={contribution.id}
+                      key={item.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -344,30 +457,25 @@ export default function MemberDashboard() {
                         <div className="flex items-center p-4">
                           <div className="flex-1">
                             <h3 className="font-semibold text-lg flex items-center gap-2">
-                              {getMonthName(contribution.month)}
-                              <Badge variant="secondary" className="text-xs font-normal">
-                                {contribution.year}
-                              </Badge>
+                              {item.title}
+                              {item.type === 'CONTRIBUTION' && <Badge variant="secondary" className="text-xs font-normal">Paid</Badge>}
                             </h3>
                             <p className="text-xs text-muted-foreground flex items-center mt-1">
                               <Calendar className="h-3 w-3 mr-1" />
-                              {new Date(contribution.paymentDate).toLocaleDateString("bn-BD")}
+                              {new Date(item.date).toLocaleDateString("bn-BD")}
+                              {item.subtitle && <span className="ml-2">• {item.subtitle}</span>}
                             </p>
                           </div>
                           <div className="text-right">
-                            <span className="block text-lg font-bold text-green-600">
-                              +৳{contribution.amount}
+                            <span className={`block text-lg font-bold ${item.type === 'CHARGE' ? 'text-red-600' : 'text-green-600'}`}>
+                              {item.type === 'CHARGE' ? '-' : '+'}৳{item.amount}
                             </span>
                           </div>
                         </div>
                       </Card>
                     </motion.div>
                   ))
-              ) : (
-                <div className="text-center py-10 text-muted-foreground">
-                  কোন চাঁদা জমা দেওয়া হয়নি
-                </div>
-              )}
+              })()}
             </div>
           </TabsContent>
 

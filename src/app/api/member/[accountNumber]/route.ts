@@ -23,6 +23,11 @@ export async function GET(
           orderBy: {
             paymentDate: "desc"
           }
+        },
+        adjustments: {
+          orderBy: {
+            date: "desc"
+          }
         }
       }
     })
