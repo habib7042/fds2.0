@@ -4,9 +4,6 @@ import { db } from "@/lib/db"
 export async function GET(request: NextRequest) {
   try {
     const polls = await db.poll.findMany({
-      where: {
-        isActive: true
-      },
       include: {
         options: {
           include: {

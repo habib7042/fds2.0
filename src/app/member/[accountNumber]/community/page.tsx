@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Heart, MessageCircle, Send, Image as ImageIcon, Smile, MoreVertical, X } from "lucide-react"
+import { Heart, MessageCircle, Send, Image as ImageIcon, Smile, MoreVertical, X, ArrowLeft } from "lucide-react"
 import EmojiPicker from 'emoji-picker-react'
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
@@ -51,6 +51,8 @@ interface Poll {
   question: string
   options: PollOption[]
   votes: PollVote[]
+  isActive: boolean
+  createdAt: string
 }
 
 interface PollOption {
@@ -71,6 +73,7 @@ interface Member {
 
 export default function CommunityPage() {
   const params = useParams()
+  const router = useRouter()
   const accountNumber = params.accountNumber as string
   const [member, setMember] = useState<Member | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -184,111 +187,154 @@ export default function CommunityPage() {
     setShowEmojiPicker(false)
   }
 
+  // Get the latest active poll
+  const latestActivePoll = polls.filter(p => p.isActive).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6 pb-20">
-      <div className="flex gap-4 sticky top-0 bg-background/95 backdrop-blur z-10 py-2">
-        <Button
-          variant={activeTab === "posts" ? "default" : "outline"}
-          onClick={() => setActiveTab("posts")}
-          className="flex-1"
-        >
-          কমিউনিটি
-        </Button>
-        <Button
-          variant={activeTab === "polls" ? "default" : "outline"}
-          onClick={() => setActiveTab("polls")}
-          className="flex-1"
-        >
-          পোলস ({polls.length})
-        </Button>
-      </div>
-
-      {activeTab === "posts" && (
-        <>
-          {/* Create Post */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex gap-4">
-                <Avatar>
-                  <AvatarImage src={member?.profileImage} />
-                  <AvatarFallback>{member?.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-4">
-                  <Textarea
-                    placeholder="আপনার মনে কি আছে?"
-                    value={newPostContent}
-                    onChange={(e) => setNewPostContent(e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                  {selectedImage && (
-                    <div className="relative w-fit">
-                      <img src={URL.createObjectURL(selectedImage)} alt="Preview" className="max-h-40 rounded-md" />
-                      <button
-                        onClick={() => setSelectedImage(null)}
-                        className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-2 relative">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        ref={fileInputRef}
-                        onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
-                        <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>
-                        <Smile className="h-5 w-5 text-muted-foreground" />
-                      </Button>
-                      {showEmojiPicker && (
-                        <div className="absolute top-10 left-0 z-50">
-                          <EmojiPicker onEmojiClick={onEmojiClick} />
-                        </div>
-                      )}
-                    </div>
-                    <Button onClick={handleCreatePost} disabled={isPosting}>
-                      {isPosting ? "পোস্ট হচ্ছে..." : "পোস্ট করুন"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Feed */}
-          <div className="space-y-4">
-            {posts.map(post => (
-              <PostCard
-                key={post.id}
-                post={post}
-                currentUserId={member?.id}
-                onLike={() => handleLike(post.id)}
-                onComment={(content) => handleComment(post.id, content)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {activeTab === "polls" && (
-        <div className="space-y-4">
-          {polls.map(poll => (
-            <PollCard
-              key={poll.id}
-              poll={poll}
-              currentUserId={member?.id}
-              onVote={(optionId) => handleVote(poll.id, optionId)}
-            />
-          ))}
-          {polls.length === 0 && <div className="text-center text-muted-foreground">কোনো পোল নেই</div>}
+    <div className="min-h-screen bg-muted/20">
+        <div className="sticky top-0 bg-background/95 backdrop-blur z-20 border-b">
+           <div className="max-w-2xl mx-auto p-4 flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => router.push(`/member/${accountNumber}`)}>
+                 <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="font-bold text-lg">কমিউনিটি</h1>
+           </div>
+           <div className="max-w-2xl mx-auto px-4 flex gap-4 pb-2">
+                <Button
+                variant={activeTab === "posts" ? "default" : "ghost"}
+                onClick={() => setActiveTab("posts")}
+                className="flex-1 rounded-full"
+                size="sm"
+                >
+                পোস্ট
+                </Button>
+                <Button
+                variant={activeTab === "polls" ? "default" : "ghost"}
+                onClick={() => setActiveTab("polls")}
+                className="flex-1 rounded-full"
+                size="sm"
+                >
+                পোলস ({polls.length})
+                </Button>
+            </div>
         </div>
-      )}
+
+        <div className="max-w-2xl mx-auto p-4 space-y-6 pb-20">
+            {activeTab === "posts" && (
+                <>
+                {/* Active Poll Teaser */}
+                {latestActivePoll && (
+                    <div className="bg-primary/5 rounded-xl p-4 border border-primary/20">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold text-primary px-2 py-0.5 bg-primary/10 rounded-full">HOT TOPIC</span>
+                            <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={() => setActiveTab("polls")}>
+                                সকল পোল দেখুন
+                            </Button>
+                        </div>
+                        <PollCard
+                            poll={latestActivePoll}
+                            currentUserId={member?.id}
+                            onVote={(optionId) => handleVote(latestActivePoll.id, optionId)}
+                            compact={true}
+                        />
+                    </div>
+                )}
+
+                {/* Create Post */}
+                <Card>
+                    <CardContent className="pt-6">
+                    <div className="flex gap-4">
+                        <Avatar>
+                        <AvatarImage src={member?.profileImage} />
+                        <AvatarFallback>{member?.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-4">
+                        <Textarea
+                            placeholder="আপনার মনে কি আছে?"
+                            value={newPostContent}
+                            onChange={(e) => setNewPostContent(e.target.value)}
+                            className="min-h-[100px] bg-transparent border-none focus-visible:ring-0 resize-none p-0 placeholder:text-muted-foreground/70"
+                        />
+                        {selectedImage && (
+                            <div className="relative w-fit">
+                            <img src={URL.createObjectURL(selectedImage)} alt="Preview" className="max-h-60 rounded-lg object-cover" />
+                            <button
+                                onClick={() => setSelectedImage(null)}
+                                className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition"
+                            >
+                                <X size={14} />
+                            </button>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t">
+                            <div className="flex gap-1 relative">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                ref={fileInputRef}
+                                onChange={(e) => setSelectedImage(e.target.files?.[0] || null)}
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            >
+                                <ImageIcon className="h-5 w-5" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                className="text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            >
+                                <Smile className="h-5 w-5" />
+                            </Button>
+                            {showEmojiPicker && (
+                                <div className="absolute top-10 left-0 z-50 shadow-xl rounded-xl overflow-hidden">
+                                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={400} />
+                                </div>
+                            )}
+                            </div>
+                            <Button onClick={handleCreatePost} disabled={isPosting} size="sm" className="rounded-full px-6">
+                            {isPosting ? "পোস্ট হচ্ছে..." : "পোস্ট করুন"}
+                            </Button>
+                        </div>
+                        </div>
+                    </div>
+                    </CardContent>
+                </Card>
+
+                {/* Feed */}
+                <div className="space-y-4">
+                    {posts.map(post => (
+                    <PostCard
+                        key={post.id}
+                        post={post}
+                        currentUserId={member?.id}
+                        onLike={() => handleLike(post.id)}
+                        onComment={(content) => handleComment(post.id, content)}
+                    />
+                    ))}
+                </div>
+                </>
+            )}
+
+            {activeTab === "polls" && (
+                <div className="space-y-4">
+                {polls.map(poll => (
+                    <PollCard
+                    key={poll.id}
+                    poll={poll}
+                    currentUserId={member?.id}
+                    onVote={(optionId) => handleVote(poll.id, optionId)}
+                    />
+                ))}
+                {polls.length === 0 && <div className="text-center py-10 text-muted-foreground">কোনো পোল নেই</div>}
+                </div>
+            )}
+        </div>
     </div>
   )
 }
@@ -298,75 +344,95 @@ function PostCard({ post, currentUserId, onLike, onComment }: { post: Post, curr
   const isLiked = post.likes.some(l => l.authorId === currentUserId)
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0 p-4">
         <Avatar>
           <AvatarImage src={post.author.profileImage} />
           <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
-          <CardTitle className="text-base">{post.author.name}</CardTitle>
+          <CardTitle className="text-sm font-semibold">{post.author.name}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: bn })}
+            {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
           </p>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="whitespace-pre-wrap">{post.content}</p>
+      <CardContent className="p-4 pt-0 space-y-3">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{post.content}</p>
         {post.image && (
-          <img src={post.image} alt="Post content" className="rounded-md w-full max-h-[400px] object-cover" />
+          <div className="rounded-xl overflow-hidden bg-muted">
+              <img src={post.image} alt="Post content" className="w-full max-h-[500px] object-cover" />
+          </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        <div className="flex gap-4 w-full">
-          <Button variant="ghost" className={`gap-2 ${isLiked ? "text-red-500" : ""}`} onClick={onLike}>
+      <CardFooter className="flex flex-col gap-0 p-0">
+        <div className="flex items-center w-full border-t border-b px-2">
+          <Button
+             variant="ghost"
+             className={`flex-1 gap-2 rounded-none h-10 ${isLiked ? "text-red-500" : "text-muted-foreground"}`}
+             onClick={onLike}
+          >
             <Heart className={`h-5 w-5 ${isLiked ? "fill-current" : ""}`} />
-            {post.likes.length}
+            <span className="text-sm">{post.likes.length}</span>
           </Button>
-          <Button variant="ghost" className="gap-2">
+          <div className="w-px h-6 bg-border" />
+          <Button variant="ghost" className="flex-1 gap-2 rounded-none h-10 text-muted-foreground">
             <MessageCircle className="h-5 w-5" />
-            {post.comments.length}
+            <span className="text-sm">{post.comments.length}</span>
           </Button>
         </div>
 
         {/* Comments */}
-        <div className="w-full space-y-4 pt-4 border-t">
+        <div className="w-full space-y-3 p-4 bg-muted/30">
           {post.comments.length > 0 && (
-            <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+            <div className="space-y-3 mb-3">
               {post.comments.map(comment => (
-                <div key={comment.id} className="flex gap-3 text-sm">
-                  <Avatar className="h-8 w-8">
+                <div key={comment.id} className="flex gap-2 text-sm group">
+                  <Avatar className="h-6 w-6 mt-0.5">
                     <AvatarImage src={comment.author.profileImage} />
-                    <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-[10px]">{comment.author.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div className="bg-muted p-3 rounded-lg flex-1">
-                    <p className="font-semibold text-xs">{comment.author.name}</p>
-                    <p>{comment.content}</p>
+                  <div className="flex-1">
+                     <div className="bg-background border rounded-2xl px-3 py-2 inline-block">
+                        <span className="font-semibold text-xs block mb-0.5">{comment.author.name}</span>
+                        <span className="text-sm">{comment.content}</span>
+                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <div className="flex gap-2">
-            <Input
-              placeholder="কমেন্ট লিখুন..."
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => {
-                if(e.key === 'Enter' && commentText.trim()) {
-                  onComment(commentText)
-                  setCommentText("")
-                }
-              }}
-            />
-            <Button size="icon" onClick={() => {
-              if(commentText.trim()) {
-                onComment(commentText)
-                setCommentText("")
-              }
-            }}>
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="flex gap-2 items-center">
+             <Avatar className="h-8 w-8">
+                 <AvatarFallback>?</AvatarFallback>
+             </Avatar>
+            <div className="flex-1 relative">
+               <Input
+                placeholder="কমেন্ট করুন..."
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => {
+                    if(e.key === 'Enter' && commentText.trim()) {
+                    onComment(commentText)
+                    setCommentText("")
+                    }
+                }}
+                className="rounded-full pr-10 h-9"
+                />
+                <Button
+                    size="icon"
+                    className="absolute right-0 top-0 h-9 w-9 rounded-full"
+                    variant="ghost"
+                    onClick={() => {
+                    if(commentText.trim()) {
+                        onComment(commentText)
+                        setCommentText("")
+                    }
+                    }}
+                >
+                <Send className="h-4 w-4 text-primary" />
+                </Button>
+            </div>
           </div>
         </div>
       </CardFooter>
@@ -374,38 +440,59 @@ function PostCard({ post, currentUserId, onLike, onComment }: { post: Post, curr
   )
 }
 
-function PollCard({ poll, currentUserId, onVote }: { poll: Poll, currentUserId?: string, onVote: (id: string) => void }) {
+function PollCard({ poll, currentUserId, onVote, compact = false }: { poll: Poll, currentUserId?: string, onVote: (id: string) => void, compact?: boolean }) {
   const totalVotes = poll.votes.length
   const hasVoted = poll.votes.some(v => v.voterId === currentUserId)
+  const isExpired = !poll.isActive
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{poll.question}</CardTitle>
-        <p className="text-sm text-muted-foreground">{totalVotes} ভোট</p>
+    <Card className={compact ? "shadow-none border-none bg-transparent" : ""}>
+      <CardHeader className={compact ? "p-0 mb-4" : ""}>
+        <CardTitle className={compact ? "text-base" : ""}>{poll.question}</CardTitle>
+        {!compact && (
+             <div className="flex gap-2 mt-1">
+                 <span className="text-sm text-muted-foreground">{totalVotes} ভোট</span>
+                 {isExpired && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">সমাপ্ত</span>}
+             </div>
+        )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={`space-y-3 ${compact ? "p-0" : ""}`}>
         {poll.options.map(option => {
           const voteCount = option.votes.length
           const percentage = totalVotes === 0 ? 0 : Math.round((voteCount / totalVotes) * 100)
+          const isLeading = percentage > 0 && percentage === Math.max(...poll.options.map(o => {
+              const vc = o.votes.length
+              return totalVotes === 0 ? 0 : Math.round((vc / totalVotes) * 100)
+          }))
 
           return (
-            <div key={option.id} className="space-y-2">
+            <div key={option.id} className="space-y-1">
               <button
-                className="w-full text-left group"
-                onClick={() => !hasVoted && onVote(option.id)}
-                disabled={hasVoted}
+                className={`w-full text-left group relative overflow-hidden rounded-lg border transition-all ${hasVoted || isExpired ? "cursor-default" : "hover:border-primary/50"}`}
+                onClick={() => !hasVoted && !isExpired && onVote(option.id)}
+                disabled={hasVoted || isExpired}
               >
-                <div className="flex justify-between text-sm mb-1">
-                  <span>{option.text}</span>
-                  <span>{percentage}%</span>
-                </div>
-                <Progress value={percentage} className="h-2" />
+                 {/* Progress Bar Background */}
+                 <div
+                    className={`absolute inset-y-0 left-0 bg-primary/10 transition-all duration-500 ${isLeading && (hasVoted || isExpired) ? "bg-green-500/10" : ""}`}
+                    style={{ width: `${percentage}%` }}
+                 />
+
+                 <div className="relative p-3 flex justify-between items-center z-10">
+                    <span className="font-medium text-sm">{option.text}</span>
+                    {(hasVoted || isExpired) && <span className="font-bold text-sm">{percentage}%</span>}
+                 </div>
               </button>
             </div>
           )
         })}
-        {hasVoted && <p className="text-xs text-center text-green-600 mt-2">আপনি ভোট দিয়েছেন</p>}
+        {!compact && hasVoted && <p className="text-xs text-center text-green-600 mt-2">আপনি ভোট দিয়েছেন</p>}
+        {compact && (
+             <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground">
+                 <span>{totalVotes} জন ভোট দিয়েছেন</span>
+                 {hasVoted ? <span className="text-green-600">ভোট সম্পন্ন</span> : <span className="text-primary">ভোট দিন</span>}
+             </div>
+        )}
       </CardContent>
     </Card>
   )

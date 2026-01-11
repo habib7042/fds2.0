@@ -53,14 +53,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const lastMember = await db.member.findFirst({
-      orderBy: {
-        accountNumber: "desc"
-      }
+    // Generate Account Number
+    // Find the highest numeric account number to increment
+    const members = await db.member.findMany({
+      select: { accountNumber: true }
     })
 
-    const lastNumber = lastMember ? parseInt(lastMember.accountNumber) : 0
-    const accountNumber = String(lastNumber + 1).padStart(4, '0')
+    let maxNum = 0
+    for (const m of members) {
+      if (/^\d+$/.test(m.accountNumber)) {
+        const num = parseInt(m.accountNumber, 10)
+        if (num > maxNum) maxNum = num
+      }
+    }
+
+    const accountNumber = String(maxNum + 1).padStart(4, '0')
 
     const member = await db.member.create({
       data: {

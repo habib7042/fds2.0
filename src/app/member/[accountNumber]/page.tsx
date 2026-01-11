@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -259,9 +259,27 @@ export default function MemberDashboard() {
               <p className="text-xs text-muted-foreground">AC: {member.accountNumber}</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-destructive">
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:flex gap-2"
+              onClick={() => router.push(`/member/${accountNumber}/community`)}
+            >
+              <MessageSquare className="h-4 w-4" /> কমিউনিটি
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => router.push(`/member/${accountNumber}/community`)}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-destructive">
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 

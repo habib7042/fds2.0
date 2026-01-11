@@ -15,10 +15,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
+import { Menu, Plus, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, CheckCircle, XCircle } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
+import { Progress } from "@/components/ui/progress"
 
 interface Member {
   id: string
@@ -51,9 +52,29 @@ interface Contribution {
   description?: string
 }
 
+interface Poll {
+  id: string
+  question: string
+  options: PollOption[]
+  isActive: boolean
+  createdAt: string
+  _count: {
+    votes: number
+  }
+}
+
+interface PollOption {
+  id: string
+  text: string
+  _count: {
+    votes: number
+  }
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
+  const [polls, setPolls] = useState<Poll[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
@@ -90,6 +111,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     checkAuth()
     fetchMembers()
+    fetchPolls()
   }, [])
 
   useEffect(() => {
@@ -132,6 +154,18 @@ export default function AdminDashboard() {
       setError("Network error occurred")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPolls = async () => {
+    try {
+      const response = await fetch("/api/admin/polls")
+      if (response.ok) {
+        const data = await response.json()
+        setPolls(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch polls")
     }
   }
 
@@ -199,32 +233,6 @@ export default function AdminDashboard() {
   const handleCreatePoll = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      // In a real app, you would get the admin ID from the token or session
-      // For now we might need to mock or fetch it.
-      // Assuming the backend handles "creatorId" or we send a dummy one if auth is token-based only
-      // Ideally the token decode on server provides ID.
-      // But our /api/admin/polls expects creatorId in body.
-      // We'll fetch the admin profile first or just use a placeholder if the API allows.
-      // Let's assume we need to decode the token or the API handles it.
-      // Looking at `src/app/api/admin/polls/route.ts`:
-      // const { question, options, creatorId } = await request.json()
-      // We need to send creatorId.
-      // Since we don't have a /api/auth/me for admin yet, let's look at login.
-      // Login returns only token.
-      // We might need to update login to return adminId or add /api/auth/me.
-      // For THIS task, I will mock an admin ID fetch or just hardcode one if I can find it,
-      // BUT robustly, I should add a way to get the ID.
-      // I'll check if I can just pick the first admin from DB via a server action? No.
-      // Let's modify the plan slightly: I'll assume there's at least one admin and I might need to query it or
-      // update the API to use the authenticated user from the token if I had middleware.
-      // Since I don't have auth middleware set up for admin routes extracting ID,
-      // I will just fetch the list of admins and pick one, OR better, update the API to optional creatorId or look it up.
-      // Actually, for simplicity in this "demo" environment, I'll fetch the first admin ID from a new helper route or just hardcode if I knew it.
-      // Wait, I can just use a server action to "get current admin id" or similar.
-      // Let's just create a quick server action to get an admin ID or update the Poll route to find the first admin if creatorId is missing.
-
-      // Let's update `src/app/api/admin/polls/route.ts` to handle missing creatorId by picking the first admin.
-
       const response = await fetch("/api/admin/polls", {
         method: "POST",
         body: JSON.stringify(newPoll)
@@ -234,8 +242,27 @@ export default function AdminDashboard() {
         setShowCreatePoll(false)
         setNewPoll({ question: "", options: ["", ""] })
         toast.success("পোল তৈরি করা হয়েছে")
+        fetchPolls()
       } else {
         toast.error("পোল তৈরি করতে ব্যর্থ")
+      }
+    } catch (e) {
+      toast.error("নেটওয়ার্ক ত্রুটি")
+    }
+  }
+
+  const handleEndPoll = async (pollId: string) => {
+    try {
+      const response = await fetch("/api/admin/polls", {
+        method: "PATCH",
+        body: JSON.stringify({ id: pollId, isActive: false })
+      })
+
+      if (response.ok) {
+        toast.success("পোল বন্ধ করা হয়েছে")
+        fetchPolls()
+      } else {
+        toast.error("পোল বন্ধ করতে ব্যর্থ")
       }
     } catch (e) {
       toast.error("নেটওয়ার্ক ত্রুটি")
@@ -534,10 +561,11 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+          <TabsList className="grid w-full grid-cols-4 lg:w-[500px]">
             <TabsTrigger value="members">সদস্য</TabsTrigger>
             <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
+            <TabsTrigger value="polls">পোলস</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -736,6 +764,61 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="polls" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {polls.map((poll) => (
+                <Card key={poll.id} className={!poll.isActive ? "opacity-75" : ""}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base">{poll.question}</CardTitle>
+                        <CardDescription>{new Date(poll.createdAt).toLocaleDateString('bn-BD')}</CardDescription>
+                      </div>
+                      <Badge variant={poll.isActive ? "default" : "secondary"}>
+                        {poll.isActive ? "চলমান" : "বন্ধ"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      {poll.options.map((option) => {
+                         const totalVotes = poll._count.votes || 0
+                         const percentage = totalVotes > 0 ? Math.round((option._count.votes / totalVotes) * 100) : 0
+
+                         return (
+                          <div key={option.id} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span>{option.text}</span>
+                              <span className="text-muted-foreground">{percentage}% ({option._count.votes})</span>
+                            </div>
+                            <Progress value={percentage} className="h-2" />
+                          </div>
+                         )
+                      })}
+                    </div>
+                    <div className="flex justify-between items-center text-sm text-muted-foreground pt-2 border-t">
+                      <span>মোট ভোট: {poll._count.votes}</span>
+                      {poll.isActive && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleEndPoll(poll.id)}
+                        >
+                          পোল বন্ধ করুন
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {polls.length === 0 && (
+                <div className="col-span-2 text-center py-10 text-muted-foreground">
+                  কোন পোল নেই
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -820,8 +903,9 @@ export default function AdminDashboard() {
           </DialogHeader>
           <form onSubmit={handleCreatePoll} className="space-y-4">
             <div className="space-y-2">
-              <Label>প্রশ্ন</Label>
+              <Label htmlFor="poll-question">প্রশ্ন</Label>
               <Input
+                id="poll-question"
                 value={newPoll.question}
                 onChange={(e) => setNewPoll({...newPoll, question: e.target.value})}
                 placeholder="পোলের প্রশ্ন..."
