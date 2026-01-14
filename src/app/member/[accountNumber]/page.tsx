@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Keypad } from "@/components/ui/keypad"
 
 interface Adjustment {
   id: string
@@ -93,6 +94,8 @@ export default function MemberDashboard() {
   const [error, setError] = useState("")
   const [generatingPDF, setGeneratingPDF] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isChangingPin, setIsChangingPin] = useState(false)
+  const [newPin, setNewPin] = useState("")
   const [saving, setSaving] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
 
@@ -190,6 +193,30 @@ export default function MemberDashboard() {
       console.error("Subscription failed", err)
       toast.error("Failed to enable notifications")
     }
+  }
+
+  const handleChangePin = async () => {
+     if (!newPin || newPin.length < 4) {
+        toast.error("পিন অন্তত ৪ ডিজিট হতে হবে")
+        return
+     }
+
+     try {
+        const res = await fetch(`/api/member/${accountNumber}`, {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ pin: newPin })
+        })
+        if (res.ok) {
+           toast.success("পিন পরিবর্তন সফল হয়েছে")
+           setIsChangingPin(false)
+           setNewPin("")
+        } else {
+           toast.error("পিন পরিবর্তন ব্যর্থ হয়েছে")
+        }
+     } catch (e) {
+        toast.error("ত্রুটি হয়েছে")
+     }
   }
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -515,110 +542,145 @@ export default function MemberDashboard() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
-                <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4 mr-2" /> এডিট করুন
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>প্রোফাইল এডিট করুন</DialogTitle>
-                      <DialogDescription>
-                        আপনার তথ্যে পরিবর্তন এনে সংরক্ষণ করুন।
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
-                      {/* Photo Uploads */}
-                      <div className="grid grid-cols-2 gap-4 border-b pb-4">
-                         <div className="space-y-2">
-                            <Label htmlFor="profileImage">আপনার ছবি</Label>
-                            <Input
-                                id="profileImage"
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)}
-                            />
-                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="nomineeImage">নমিনির ছবি</Label>
-                            <Input
-                                id="nomineeImage"
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setNomineeImageFile(e.target.files?.[0] || null)}
-                            />
-                         </div>
-                      </div>
-
-                      {/* Basic Info */}
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">মোবাইল নম্বর</Label>
-                        <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label htmlFor="email">ইমেইল</Label>
-                         <Input id="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label htmlFor="address">ঠিকানা</Label>
-                         <Textarea id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor="dob">জন্মতারিখ</Label>
-                            <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} />
-                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="maritalStatus">বৈবাহিক অবস্থা</Label>
-                            <Select value={formData.maritalStatus} onValueChange={(v) => setFormData({...formData, maritalStatus: v})}>
-                               <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
-                               <SelectContent>
-                                  <SelectItem value="married">বিবাহিত</SelectItem>
-                                  <SelectItem value="unmarried">অবিবাহিত</SelectItem>
-                               </SelectContent>
-                            </Select>
-                         </div>
-                      </div>
-                      <div className="space-y-2">
-                         <Label htmlFor="nid">জাতীয় পরিচয়পত্র/জন্ম নিবন্ধন নম্বর</Label>
-                         <Input id="nid" value={formData.nid} onChange={(e) => setFormData({...formData, nid: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label htmlFor="fatherName">বাবার নাম</Label>
-                         <Input id="fatherName" value={formData.fatherName} onChange={(e) => setFormData({...formData, fatherName: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label htmlFor="motherName">মায়ের নাম</Label>
-                         <Input id="motherName" value={formData.motherName} onChange={(e) => setFormData({...formData, motherName: e.target.value})} />
-                      </div>
-
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
-                        <div className="space-y-4">
-                           <div className="space-y-2">
-                              <Label htmlFor="nomineeName">নমিনির নাম</Label>
-                              <Input id="nomineeName" value={formData.nomineeName} onChange={(e) => setFormData({...formData, nomineeName: e.target.value})} />
-                           </div>
-                           <div className="space-y-2">
-                              <Label htmlFor="nomineeRelation">সম্পর্ক</Label>
-                              <Input id="nomineeRelation" value={formData.nomineeRelation} onChange={(e) => setFormData({...formData, nomineeRelation: e.target.value})} />
-                           </div>
-                           <div className="space-y-2">
-                              <Label htmlFor="nomineeNid">নমিনির এনআইডি/জন্ম নিবন্ধন</Label>
-                              <Input id="nomineeNid" value={formData.nomineeNid} onChange={(e) => setFormData({...formData, nomineeNid: e.target.value})} />
-                           </div>
+                <div className="flex gap-2">
+                  <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Lock className="h-4 w-4 mr-2" /> পিন পরিবর্তন
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>পিন পরিবর্তন করুন</DialogTitle>
+                        <DialogDescription>আপনার একাউন্টের নিরাপত্তা নিশ্চিত করতে নতুন পিন সেট করুন।</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>নতুন পিন</Label>
+                          <Input
+                            type="password"
+                            value={newPin}
+                            readOnly
+                            placeholder="****"
+                            className="text-center text-xl tracking-widest h-12"
+                          />
                         </div>
+                        <Keypad
+                          onInput={(n) => { if (newPin.length < 6) setNewPin(p => p + n) }}
+                          onDelete={() => setNewPin(p => p.slice(0, -1))}
+                        />
                       </div>
-
                       <DialogFooter>
-                        <Button type="submit" disabled={saving}>
-                           {saving ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
-                        </Button>
+                        <Button onClick={handleChangePin}>পরিবর্তন করুন</Button>
                       </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-2" /> এডিট করুন
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>প্রোফাইল এডিট করুন</DialogTitle>
+                        <DialogDescription>
+                          আপনার তথ্যে পরিবর্তন এনে সংরক্ষণ করুন।
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
+                        {/* Photo Uploads */}
+                        <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="profileImage">আপনার ছবি</Label>
+                              <Input
+                                  id="profileImage"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)}
+                              />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="nomineeImage">নমিনির ছবি</Label>
+                              <Input
+                                  id="nomineeImage"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setNomineeImageFile(e.target.files?.[0] || null)}
+                              />
+                          </div>
+                        </div>
+
+                        {/* Basic Info */}
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">মোবাইল নম্বর</Label>
+                          <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">ইমেইল</Label>
+                          <Input id="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="address">ঠিকানা</Label>
+                          <Textarea id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="dob">জন্মতারিখ</Label>
+                              <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="maritalStatus">বৈবাহিক অবস্থা</Label>
+                              <Select value={formData.maritalStatus} onValueChange={(v) => setFormData({...formData, maritalStatus: v})}>
+                                <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="married">বিবাহিত</SelectItem>
+                                    <SelectItem value="unmarried">অবিবাহিত</SelectItem>
+                                </SelectContent>
+                              </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nid">জাতীয় পরিচয়পত্র/জন্ম নিবন্ধন নম্বর</Label>
+                          <Input id="nid" value={formData.nid} onChange={(e) => setFormData({...formData, nid: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fatherName">বাবার নাম</Label>
+                          <Input id="fatherName" value={formData.fatherName} onChange={(e) => setFormData({...formData, fatherName: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="motherName">মায়ের নাম</Label>
+                          <Input id="motherName" value={formData.motherName} onChange={(e) => setFormData({...formData, motherName: e.target.value})} />
+                        </div>
+
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeName">নমিনির নাম</Label>
+                                <Input id="nomineeName" value={formData.nomineeName} onChange={(e) => setFormData({...formData, nomineeName: e.target.value})} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeRelation">সম্পর্ক</Label>
+                                <Input id="nomineeRelation" value={formData.nomineeRelation} onChange={(e) => setFormData({...formData, nomineeRelation: e.target.value})} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeNid">নমিনির এনআইডি/জন্ম নিবন্ধন</Label>
+                                <Input id="nomineeNid" value={formData.nomineeNid} onChange={(e) => setFormData({...formData, nomineeNid: e.target.value})} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <DialogFooter>
+                          <Button type="submit" disabled={saving}>
+                            {saving ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent className="space-y-6">
 

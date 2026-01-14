@@ -26,6 +26,7 @@ model Admin {
 model Member {
   id              String   @id @default(cuid())
   accountNumber   String   @unique
+  pin             String   @default("1234")
   name            String
   phone           String?
   email           String?

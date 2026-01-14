@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -12,12 +12,16 @@ import { motion } from "framer-motion"
 import { Handshake, ArrowRight, ShieldCheck, Lock } from "lucide-react"
 import Link from "next/link"
 import { InstallPWA } from "@/components/install-pwa"
+import { Keypad } from "@/components/ui/keypad"
 
 export default function LoginPage() {
   const [adminUsername, setAdminUsername] = useState("")
   const [adminPassword, setAdminPassword] = useState("")
-  const [accountNumber, setAccountNumber] = useState("")
+
+  // Member Login States
   const [mobileNumber, setMobileNumber] = useState("")
+  const [pin, setPin] = useState("")
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [mounted, setMounted] = useState(false)
@@ -58,12 +62,13 @@ export default function LoginPage() {
 
   const handleMemberLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (accountNumber.length !== 4) {
-      setError("Account number must be 4 digits")
-      return
-    }
+
     if (!mobileNumber) {
       setError("Mobile number is required")
+      return
+    }
+    if (!pin) {
+      setError("PIN is required")
       return
     }
     
@@ -77,15 +82,18 @@ export default function LoginPage() {
            "Content-Type": "application/json"
         },
         body: JSON.stringify({
-           accountNumber,
-           phone: mobileNumber
+           phone: mobileNumber,
+           pin
         })
       })
 
       if (response.ok) {
-        // We don't really use the returned member object yet, just the success status
-        localStorage.setItem("memberAccount", accountNumber)
-        router.push(`/member/${accountNumber}`)
+        const data = await response.json()
+        const member = data.member
+        // Keep localStorage for client-side convenience/legacy checks
+        // But cookie is the main auth now
+        localStorage.setItem("memberAccount", member.accountNumber)
+        router.push(`/member/${member.accountNumber}`)
       } else {
         const data = await response.json()
         setError(data.error || "Login failed")
@@ -95,6 +103,16 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handlePinInput = (num: string) => {
+    if (pin.length < 6) { // Max 6 digits for PIN? Or 4? User said default 1234. Let's assume 4-6.
+      setPin(prev => prev + num)
+    }
+  }
+
+  const handlePinDelete = () => {
+    setPin(prev => prev.slice(0, -1))
   }
 
   if (!mounted) return null
@@ -203,19 +221,6 @@ export default function LoginPage() {
                      <TabsContent value="member">
                         <form onSubmit={handleMemberLogin} className="space-y-4">
                            <div className="space-y-2">
-                              <Label htmlFor="accountNumber">একাউন্ট নম্বর (৪ ডিজিট)</Label>
-                              <Input
-                                 id="accountNumber"
-                                 type="text"
-                                 value={accountNumber}
-                                 onChange={(e) => setAccountNumber(e.target.value)}
-                                 maxLength={4}
-                                 placeholder="0001"
-                                 required
-                                 className="text-center text-xl tracking-[0.5em] h-12 font-mono"
-                              />
-                           </div>
-                           <div className="space-y-2">
                               <Label htmlFor="mobileNumber">মোবাইল নম্বর</Label>
                               <Input
                                  id="mobileNumber"
@@ -227,8 +232,29 @@ export default function LoginPage() {
                                  className="h-10"
                               />
                            </div>
-                           <Button type="submit" className="w-full h-10 text-base" disabled={loading}>
-                              {loading ? "যাচাই করা হচ্ছে..." : "একাউন্ট দেখুন"}
+
+                           <div className="space-y-2">
+                              <Label htmlFor="pin">পিন কোড</Label>
+                              <Input
+                                 id="pin"
+                                 type="password"
+                                 value={pin}
+                                 readOnly
+                                 placeholder="****"
+                                 className="text-center text-xl tracking-widest h-12"
+                                 onClick={(e) => e.currentTarget.blur()} // Prevent keyboard on mobile if we want strict keypad, but user might want to type. Let's keep readOnly to force keypad.
+                              />
+                           </div>
+
+                           {/* Keypad */}
+                           <Keypad
+                              onInput={handlePinInput}
+                              onDelete={handlePinDelete}
+                              className="my-4"
+                           />
+
+                           <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={loading}>
+                              {loading ? "যাচাই করা হচ্ছে..." : "লগইন"}
                            </Button>
                         </form>
                      </TabsContent>
