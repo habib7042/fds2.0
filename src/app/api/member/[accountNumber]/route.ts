@@ -45,7 +45,20 @@ export async function GET(
     })
     const memberCount = await db.member.count()
 
-    return NextResponse.json({ ...member, fundAdjustments, memberCount })
+    // Calculate Verified Status
+    const requiredFields = [
+      "phone", "email", "address", "dob", "nid", "fatherName",
+      "motherName", "maritalStatus", "nomineeName", "nomineeNid",
+      "nomineeRelation", "profileImage", "nomineeImage"
+    ]
+
+    // Check if all required fields are present and not empty
+    const isVerified = requiredFields.every(field => {
+      const val = member[field as keyof typeof member]
+      return val && val.toString().trim().length > 0
+    })
+
+    return NextResponse.json({ ...member, fundAdjustments, memberCount, isVerified })
   } catch (error) {
     console.error("Member lookup error:", error)
     return NextResponse.json(

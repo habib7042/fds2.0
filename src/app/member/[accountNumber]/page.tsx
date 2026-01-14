@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,6 +16,7 @@ import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface Adjustment {
   id: string
@@ -55,6 +56,7 @@ interface Member {
   adjustments: Adjustment[]
   fundAdjustments: FundAdjustment[]
   memberCount: number
+  isVerified?: boolean
 }
 
 interface Contribution {
@@ -388,7 +390,21 @@ export default function MemberDashboard() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h1 className="text-sm font-semibold leading-tight">{member.name}</h1>
+              <div className="flex items-center gap-1">
+                <h1 className="text-sm font-semibold leading-tight">{member.name}</h1>
+                {member.isVerified && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <CheckCircle2 className="h-4 w-4 text-blue-500 fill-blue-500 text-white" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>যাচাইকৃত সদস্য</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">AC: {member.accountNumber}</p>
             </div>
           </div>
@@ -700,7 +716,14 @@ export default function MemberDashboard() {
 
                 <div className="grid gap-1">
                   <p className="text-sm font-medium leading-none">নাম</p>
-                  <p className="text-sm text-muted-foreground">{member.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">{member.name}</p>
+                    {member.isVerified && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <div className="grid gap-1">
                    <p className="text-sm font-medium leading-none">একাউন্ট নম্বর</p>
