@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Handshake, ArrowRight, ShieldCheck, Lock } from "lucide-react"
+import { Handshake, ArrowRight, ShieldCheck, Lock, X } from "lucide-react"
 import Link from "next/link"
 import { InstallPWA } from "@/components/install-pwa"
 import { Keypad } from "@/components/ui/keypad"
@@ -21,6 +21,7 @@ export default function LoginPage() {
   // Member Login States
   const [mobileNumber, setMobileNumber] = useState("")
   const [pin, setPin] = useState("")
+  const [isNumberSaved, setIsNumberSaved] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -29,6 +30,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true)
+    const saved = localStorage.getItem("savedMobileNumber")
+    if (saved) {
+      setMobileNumber(saved)
+      setIsNumberSaved(true)
+    }
   }, [])
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -93,6 +99,7 @@ export default function LoginPage() {
         // Keep localStorage for client-side convenience/legacy checks
         // But cookie is the main auth now
         localStorage.setItem("memberAccount", member.accountNumber)
+        localStorage.setItem("savedMobileNumber", mobileNumber)
         router.push(`/member/${member.accountNumber}`)
       } else {
         const data = await response.json()
@@ -105,8 +112,15 @@ export default function LoginPage() {
     }
   }
 
+  const handleChangeNumber = () => {
+    setMobileNumber("")
+    setPin("")
+    setIsNumberSaved(false)
+    localStorage.removeItem("savedMobileNumber")
+  }
+
   const handlePinInput = (num: string) => {
-    if (pin.length < 6) { // Max 6 digits for PIN? Or 4? User said default 1234. Let's assume 4-6.
+    if (pin.length < 6) {
       setPin(prev => prev + num)
     }
   }
@@ -218,15 +232,33 @@ export default function LoginPage() {
                         <form onSubmit={handleMemberLogin} className="space-y-4">
                            <div className="space-y-2">
                               <Label htmlFor="mobileNumber">মোবাইল নম্বর</Label>
-                              <Input
-                                 id="mobileNumber"
-                                 type="tel"
-                                 value={mobileNumber}
-                                 onChange={(e) => setMobileNumber(e.target.value)}
-                                 placeholder="017xxxxxxxx"
-                                 required
-                                 className="h-10"
-                              />
+                              {isNumberSaved ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-10 px-3 py-2 border rounded-md bg-muted text-muted-foreground flex items-center font-medium">
+                                    {mobileNumber}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleChangeNumber}
+                                    className="text-muted-foreground hover:text-destructive shrink-0"
+                                    title="Change Number"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Input
+                                   id="mobileNumber"
+                                   type="tel"
+                                   value={mobileNumber}
+                                   onChange={(e) => setMobileNumber(e.target.value)}
+                                   placeholder="017xxxxxxxx"
+                                   required
+                                   className="h-10"
+                                />
+                              )}
                            </div>
 
                            <div className="space-y-2">
@@ -238,7 +270,7 @@ export default function LoginPage() {
                                  readOnly
                                  placeholder="****"
                                  className="text-center text-xl tracking-widest h-12"
-                                 onClick={(e) => e.currentTarget.blur()} // Prevent keyboard on mobile if we want strict keypad, but user might want to type. Let's keep readOnly to force keypad.
+                                 onClick={(e) => e.currentTarget.blur()}
                               />
                            </div>
 
