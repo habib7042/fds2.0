@@ -123,10 +123,8 @@ export default function LoginPage() {
       <div className="hidden md:flex md:w-1/2 bg-primary/5 lg:bg-primary/10 flex-col justify-between p-12 relative overflow-hidden">
         <div className="z-10">
            <div className="flex items-center gap-3 mb-8">
-             <div className="bg-primary p-2 rounded-full">
-                <Handshake className="w-8 h-8 text-primary-foreground" />
-             </div>
-             <span className="text-2xl font-bold tracking-tight">FDS</span>
+             <img src="/logo.png" alt="FDS Logo" className="w-16 h-16 object-contain" />
+             <span className="text-3xl font-bold tracking-tight">FDS</span>
            </div>
            <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight mb-6">
              বন্ধুত্ব ও সহযোগিতার <br /> এক অনন্য বন্ধন
@@ -160,9 +158,7 @@ export default function LoginPage() {
       {/* Right Side - Login Form */}
       <div className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 relative">
          <div className="absolute top-6 right-6 md:hidden">
-             <div className="bg-primary/10 p-2 rounded-full">
-                <Handshake className="w-6 h-6 text-primary" />
-             </div>
+             <img src="/logo.png" alt="FDS Logo" className="w-12 h-12 object-contain" />
          </div>
 
          <motion.div

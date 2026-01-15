@@ -23,7 +23,8 @@ export const metadata: Metadata = {
   authors: [{ name: "FDS Team" }],
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
