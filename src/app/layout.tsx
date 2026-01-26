@@ -5,6 +5,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AutoLogout } from "@/components/auto-logout";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({
         >
           <AutoLogout />
           {children}
+          <WhatsAppButton />
           <Toaster />
         </ThemeProvider>
       </body>

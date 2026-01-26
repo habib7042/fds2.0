@@ -19,10 +19,26 @@ import {
 
 export default function PolicyPage() {
   const [mounted, setMounted] = useState(false)
+  const [memberCount, setMemberCount] = useState<string | null>(null)
 
   useEffect(() => {
     setMounted(true)
+
+    // Fetch member count
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        if (typeof data.count === 'number') {
+          setMemberCount(toBengaliNumber(data.count))
+        }
+      })
+      .catch(err => console.error("Failed to fetch stats", err))
   }, [])
+
+  const toBengaliNumber = (num: number | string) => {
+    const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
+  }
 
   if (!mounted) return null
 
@@ -68,8 +84,8 @@ export default function PolicyPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">১৫-২০ জন</div>
-              <p className="text-xs text-muted-foreground">প্রাথমিক সদস্য সংখ্যা</p>
+              <div className="text-2xl font-bold">{memberCount ? `${memberCount} জন` : 'লোড হচ্ছে...'}</div>
+              <p className="text-xs text-muted-foreground">বর্তমান সদস্য সংখ্যা</p>
             </CardContent>
           </Card>
           <Card>
@@ -78,7 +94,7 @@ export default function PolicyPage() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">৫০০ টাকা</div>
+              <div className="text-2xl font-bold">১০০০ টাকা</div>
               <p className="text-xs text-muted-foreground">প্রতি মাসের ১০ তারিখের মধ্যে</p>
             </CardContent>
           </Card>
@@ -110,7 +126,7 @@ export default function PolicyPage() {
                 </CardHeader>
                 <CardContent>
                    <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                      <li>FDS-এ প্রাথমিক সদস্য সংখ্যা ১৫-২০ জন।</li>
+                      <li>FDS-এ বর্তমান সদস্য সংখ্যা {memberCount || '...'} জন।</li>
                       <li>সদস্য হতে হলে সবাইকে নিয়মিত মাসিক চাঁদা প্রদান করতে হবে।</li>
                       <li>নতুন সদস্য যোগ হলে পূর্ব সদস্যদের সর্বসম্মত মতামত প্রয়োজন।</li>
                    </ul>
@@ -125,7 +141,7 @@ export default function PolicyPage() {
                 </CardHeader>
                 <CardContent>
                    <ul className="space-y-2 text-sm text-muted-foreground list-disc pl-5">
-                      <li>প্রত্যেক সদস্য প্রতি মাসে ৫০০ টাকা করে চাঁদা প্রদান করবেন।</li>
+                      <li>প্রত্যেক সদস্য প্রতি মাসে ১০০০ টাকা করে চাঁদা প্রদান করবেন।</li>
                       <li>নির্ধারিত তারিখ (প্রত্যেক মাসের ১০ তারিখের মধ্যে) চাঁদা জমা দিতে হবে।</li>
                       <li>চাঁদা একটি নির্দিষ্ট ব্যাঙ্ক বা মোবাইল ব্যাংক একাউন্টে জমা হবে।</li>
                    </ul>
