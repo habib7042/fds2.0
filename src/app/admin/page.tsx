@@ -589,23 +589,23 @@ export default function AdminDashboard() {
               box-shadow: 0 2px 5px rgba(0,0,0,0.02);
             }
             .info-box h3 {
-              font-size: 14px;
+              font-size: 12px;
               text-transform: uppercase;
               color: #16a34a;
               border-bottom: 1px solid #e2e8f0;
-              padding-bottom: 10px;
-              margin-bottom: 15px;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
               letter-spacing: 1px;
               font-weight: 700;
             }
             .info-row {
               display: flex;
-              margin-bottom: 8px;
-              font-size: 13px;
+              margin-bottom: 4px;
+              font-size: 11px;
               color: #334155;
             }
             .info-row span:first-child {
-              width: 120px;
+              width: 100px;
               color: #64748b;
               font-weight: 600;
             }
@@ -617,8 +617,8 @@ export default function AdminDashboard() {
               width: 100%;
               border-collapse: separate;
               border-spacing: 0;
-              font-size: 13px;
-              margin-bottom: 30px;
+              font-size: 11px;
+              margin-bottom: 20px;
               border: 1px solid #e2e8f0;
               border-radius: 8px;
               overflow: hidden;
@@ -628,13 +628,13 @@ export default function AdminDashboard() {
               color: white;
               font-weight: 600;
               text-align: left;
-              padding: 12px 15px;
+              padding: 8px 10px;
               text-transform: uppercase;
-              font-size: 12px;
+              font-size: 11px;
               letter-spacing: 0.5px;
             }
             td {
-              padding: 12px 15px;
+              padding: 6px 10px;
               border-bottom: 1px solid #e2e8f0;
               color: #334155;
             }
@@ -650,23 +650,23 @@ export default function AdminDashboard() {
             .amount {
               text-align: right;
               font-family: monospace;
-              font-size: 14px;
+              font-size: 11px;
               font-weight: 700;
             }
             .summary-box {
               background: #f0fdf4;
               border: 2px solid #16a34a;
               border-radius: 12px;
-              padding: 25px;
-              margin-top: 30px;
+              padding: 15px;
+              margin-top: 20px;
               break-inside: avoid;
               box-shadow: 0 4px 10px rgba(22, 163, 74, 0.05);
             }
             .summary-row {
               display: flex;
               justify-content: space-between;
-              padding: 8px 0;
-              font-size: 14px;
+              padding: 4px 0;
+              font-size: 12px;
               color: #334155;
             }
             .summary-row.total {
