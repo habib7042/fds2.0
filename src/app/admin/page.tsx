@@ -491,162 +491,222 @@ export default function AdminDashboard() {
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
             body {
               font-family: 'Noto Sans Bengali', sans-serif;
-              padding: 40px;
-              color: #1a1a1a;
-              max-width: 800px;
-              margin: 0 auto;
+              padding: 0;
+              margin: 0;
+              background-color: #f0f2f5;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
-            .header-container {
+            .page {
+              background: white;
+              width: 210mm;
+              min-height: 297mm;
+              margin: 20px auto;
+              padding: 40px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              position: relative;
+              box-sizing: border-box;
+            }
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 100px;
+              color: rgba(37, 99, 235, 0.03);
+              font-weight: bold;
+              pointer-events: none;
+              white-space: nowrap;
+              z-index: 0;
+            }
+            @media print {
+              body { background: none; margin: 0; }
+              .page { margin: 0; width: 100%; box-shadow: none; }
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+              color: white;
+              padding: 30px;
+              border-radius: 12px;
+              margin-bottom: 40px;
               display: flex;
-              align-items: center;
               justify-content: space-between;
-              border-bottom: 2px solid #2563eb;
-              padding-bottom: 20px;
-              margin-bottom: 30px;
+              align-items: center;
+              position: relative;
+              z-index: 1;
             }
             .brand h1 {
               margin: 0;
-              color: #2563eb;
-              font-size: 24px;
+              font-size: 28px;
+              font-weight: 700;
+              letter-spacing: -0.5px;
             }
             .brand p {
               margin: 5px 0 0;
               font-size: 14px;
-              color: #666;
+              opacity: 0.9;
             }
             .statement-title {
               text-align: right;
             }
             .statement-title h2 {
               margin: 0;
-              font-size: 20px;
+              font-size: 18px;
               text-transform: uppercase;
-              letter-spacing: 1px;
+              letter-spacing: 2px;
+              opacity: 0.9;
             }
             .statement-title p {
               margin: 5px 0 0;
-              font-size: 12px;
-              color: #666;
+              font-size: 14px;
+              font-weight: 500;
+            }
+            .content {
+              position: relative;
+              z-index: 1;
             }
             .info-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 40px;
-              margin-bottom: 30px;
+              grid-template-columns: 1.5fr 1fr;
+              gap: 50px;
+              margin-bottom: 40px;
             }
             .info-box h3 {
-              font-size: 14px;
+              font-size: 13px;
               text-transform: uppercase;
-              color: #666;
-              border-bottom: 1px solid #eee;
-              padding-bottom: 5px;
-              margin-bottom: 10px;
+              color: #16a34a;
+              border-bottom: 2px solid #16a34a;
+              padding-bottom: 8px;
+              margin-bottom: 15px;
+              letter-spacing: 1px;
             }
             .info-row {
               display: flex;
-              justify-content: space-between;
-              margin-bottom: 8px;
+              margin-bottom: 10px;
               font-size: 14px;
+              color: #334155;
             }
-            .table-container {
-              margin: 30px 0;
+            .info-row span:first-child {
+              width: 120px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            .info-row strong {
+              color: #0f172a;
             }
             table {
               width: 100%;
-              border-collapse: collapse;
+              border-collapse: separate;
+              border-spacing: 0;
               font-size: 14px;
+              margin-bottom: 30px;
             }
             th {
-              background-color: #f8fafc;
-              color: #475569;
+              background-color: #f0fdf4;
+              color: #166534;
               font-weight: 600;
               text-align: left;
-              padding: 12px;
-              border-bottom: 2px solid #e2e8f0;
+              padding: 15px;
+              border-top: 2px solid #16a34a;
+              border-bottom: 2px solid #16a34a;
             }
             td {
-              padding: 12px;
+              padding: 15px;
               border-bottom: 1px solid #e2e8f0;
               color: #334155;
             }
-            tr:last-child td {
-              border-bottom: none;
+            tr:nth-child(even) {
+              background-color: #f8fafc;
             }
             .amount {
               text-align: right;
               font-family: monospace;
               font-size: 15px;
+              font-weight: 600;
             }
-            .summary-section {
-              background-color: #f8fafc;
-              padding: 20px;
+            .summary-box {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
               border-radius: 8px;
-              margin-top: 20px;
+              padding: 25px;
+              margin-top: 30px;
+              break-inside: avoid;
             }
             .summary-row {
               display: flex;
               justify-content: space-between;
-              padding: 8px 0;
+              padding: 10px 0;
               font-size: 14px;
+              color: #475569;
             }
             .summary-row.total {
-              border-top: 2px solid #e2e8f0;
-              margin-top: 10px;
-              padding-top: 15px;
-              font-weight: bold;
-              font-size: 16px;
-              color: #2563eb;
+              border-top: 2px dashed #cbd5e1;
+              margin-top: 15px;
+              padding-top: 20px;
+              font-weight: 700;
+              font-size: 18px;
+              color: #16a34a;
             }
             .footer {
-              margin-top: 50px;
+              margin-top: 60px;
               text-align: center;
               font-size: 12px;
               color: #94a3b8;
               border-top: 1px solid #e2e8f0;
-              padding-top: 20px;
+              padding-top: 30px;
             }
           </style>
         </head>
         <body>
-          <div class="header-container">
-            <div class="brand">
-              <h1>Friends Development Society</h1>
-              <p>বন্ধুত্ব ও সহযোগিতার এক অনন্য বন্ধন</p>
-            </div>
-            <div class="statement-title">
-              <h2>হিসাব বিবরণী</h2>
-              <p>তারিখ: ${new Date().toLocaleDateString('bn-BD')}</p>
-            </div>
-          </div>
+          <div class="page">
+            <div class="watermark">FDS OFFICIAL</div>
 
-          <div class="info-grid">
-            <div class="info-box">
-              <h3>সদস্যের তথ্য</h3>
-              <div class="info-row">
-                <span>নাম:</span>
-                <strong>${member.name}</strong>
+            <div class="header-banner">
+              <div class="brand">
+                <h1>Friends Development Society</h1>
+                <p>বন্ধুত্ব ও সহযোগিতার এক অনন্য বন্ধন</p>
               </div>
-              <div class="info-row">
-                <span>একাউন্ট নম্বর:</span>
-                <strong>${toBengaliNumber(member.accountNumber)}</strong>
-              </div>
-              <div class="info-row">
-                <span>মোবাইল:</span>
-                <span>${toBengaliNumber(member.phone || 'N/A')}</span>
+              <div class="statement-title">
+                <h2>হিসাব বিবরণী</h2>
+                <p>${new Date().toLocaleDateString('bn-BD')}</p>
               </div>
             </div>
-            <div class="info-box">
-              <h3>সারসংক্ষেপ</h3>
-              <div class="info-row">
-                <span>মোট জমা:</span>
-                <span class="amount">৳${toBengaliNumber(totalContributions)}</span>
+
+            <div class="content">
+              <div class="info-grid">
+                <div class="info-box">
+                  <h3>সদস্যের তথ্য</h3>
+                  <div class="info-row">
+                    <span>নাম:</span>
+                    <strong>${member.name}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>একাউন্ট নম্বর:</span>
+                    <strong>${toBengaliNumber(member.accountNumber)}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>মোবাইল:</span>
+                    <span>${toBengaliNumber(member.phone || 'N/A')}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>ঠিকানা:</span>
+                    <span>${member.address || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="info-box">
+                  <h3>সারসংক্ষেপ</h3>
+                  <div class="info-row">
+                    <span>মোট জমা:</span>
+                    <span class="amount" style="color: #16a34a">৳${toBengaliNumber(totalContributions)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>মুনাফা/চার্জ:</span>
+                    <span class="amount" style="color: ${personalAdjSum + share >= 0 ? '#16a34a' : '#dc2626'}">
+                      ৳${toBengaliNumber((personalAdjSum + share).toFixed(2))}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="info-row">
-                <span>মুনাফা/চার্জ:</span>
-                <span class="amount">৳${toBengaliNumber((personalAdjSum + share).toFixed(2))}</span>
-              </div>
-            </div>
-          </div>
 
           <div class="table-container">
             <h3>সাম্প্রতিক লেনদেন</h3>
@@ -672,18 +732,22 @@ export default function AdminDashboard() {
             </table>
           </div>
 
-          <div class="summary-section">
+          <div class="summary-box">
             <div class="summary-row">
               <span>মোট চাঁদা</span>
               <span class="amount">৳${toBengaliNumber(totalContributions)}</span>
             </div>
             <div class="summary-row">
               <span>ব্যক্তিগত মুনাফা/চার্জ</span>
-              <span class="amount">৳${toBengaliNumber(personalAdjSum.toFixed(2))}</span>
+              <span class="amount" style="color: ${personalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(personalAdjSum.toFixed(2))}
+              </span>
             </div>
             <div class="summary-row">
               <span>গ্লোবাল মুনাফা/চার্জ (শেয়ার)</span>
-              <span class="amount">৳${toBengaliNumber(share.toFixed(2))}</span>
+              <span class="amount" style="color: ${share >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(share.toFixed(2))}
+              </span>
             </div>
             <div class="summary-row total">
               <span>সর্বমোট স্থিতি</span>
@@ -694,6 +758,8 @@ export default function AdminDashboard() {
           <div class="footer">
             <p>এই স্টেটমেন্টটি কম্পিউটার দ্বারা প্রস্তুতকৃত এবং এর জন্য কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
             <p>© ${new Date().getFullYear()} Friends Development Society (FDS)</p>
+          </div>
+          </div>
           </div>
 
           <script>window.print();</script>
