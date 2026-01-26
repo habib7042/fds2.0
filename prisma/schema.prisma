@@ -28,7 +28,7 @@ model Member {
   accountNumber   String   @unique
   pin             String   @default("1234")
   name            String
-  phone           String?
+  phone           String?  @unique
   email           String?
   address         String?
   dob             String?

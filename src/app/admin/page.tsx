@@ -558,8 +558,9 @@ export default function AdminDashboard() {
             }
             .statement-title p {
               margin: 5px 0 0;
-              font-size: 14px;
+              font-size: 11px;
               font-weight: 500;
+              color: rgba(255, 255, 255, 0.9);
             }
             .content {
               position: relative;
@@ -568,26 +569,26 @@ export default function AdminDashboard() {
             .info-grid {
               display: grid;
               grid-template-columns: 1.5fr 1fr;
-              gap: 50px;
-              margin-bottom: 40px;
+              gap: 40px;
+              margin-bottom: 30px;
             }
             .info-box h3 {
-              font-size: 13px;
+              font-size: 12px;
               text-transform: uppercase;
               color: #16a34a;
               border-bottom: 2px solid #16a34a;
-              padding-bottom: 8px;
-              margin-bottom: 15px;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
               letter-spacing: 1px;
             }
             .info-row {
               display: flex;
-              margin-bottom: 10px;
-              font-size: 14px;
+              margin-bottom: 6px;
+              font-size: 12px;
               color: #334155;
             }
             .info-row span:first-child {
-              width: 120px;
+              width: 100px;
               color: #64748b;
               font-weight: 500;
             }
@@ -598,20 +599,20 @@ export default function AdminDashboard() {
               width: 100%;
               border-collapse: separate;
               border-spacing: 0;
-              font-size: 14px;
-              margin-bottom: 30px;
+              font-size: 12px;
+              margin-bottom: 20px;
             }
             th {
               background-color: #f0fdf4;
               color: #166534;
               font-weight: 600;
               text-align: left;
-              padding: 15px;
+              padding: 10px;
               border-top: 2px solid #16a34a;
               border-bottom: 2px solid #16a34a;
             }
             td {
-              padding: 15px;
+              padding: 8px 10px;
               border-bottom: 1px solid #e2e8f0;
               color: #334155;
             }
@@ -621,22 +622,22 @@ export default function AdminDashboard() {
             .amount {
               text-align: right;
               font-family: monospace;
-              font-size: 15px;
+              font-size: 12px;
               font-weight: 600;
             }
             .summary-box {
               background: #f8fafc;
               border: 1px solid #e2e8f0;
               border-radius: 8px;
-              padding: 25px;
-              margin-top: 30px;
+              padding: 15px;
+              margin-top: 20px;
               break-inside: avoid;
             }
             .summary-row {
               display: flex;
               justify-content: space-between;
-              padding: 10px 0;
-              font-size: 14px;
+              padding: 6px 0;
+              font-size: 12px;
               color: #475569;
             }
             .summary-row.total {
@@ -668,7 +669,7 @@ export default function AdminDashboard() {
               </div>
               <div class="statement-title">
                 <h2>হিসাব বিবরণী</h2>
-                <p>${new Date().toLocaleDateString('bn-BD')}</p>
+                <p>প্রিন্ট: ${new Date().toLocaleString('bn-BD')}</p>
               </div>
             </div>
 

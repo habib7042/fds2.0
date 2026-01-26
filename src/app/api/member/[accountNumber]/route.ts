@@ -8,6 +8,7 @@ export async function GET(
 ) {
   try {
     const { accountNumber } = await params
+    console.log(`API Member Lookup: ${accountNumber}`)
 
     if (!accountNumber || accountNumber.length !== 4) {
       return NextResponse.json(

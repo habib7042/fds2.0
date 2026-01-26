@@ -265,6 +265,12 @@ export default function MemberDashboard() {
     }
   }
 
+  const toBengaliNumber = (num: number | string) => {
+    if (num === undefined || num === null) return "০"
+    const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
+  }
+
   const getMonthName = (month: string) => {
     return monthNames[month as keyof typeof monthNames] || month
   }
@@ -300,6 +306,48 @@ export default function MemberDashboard() {
       const printWindow = window.open('', '_blank')
       if (!printWindow) throw new Error('Unable to open print window')
 
+      const totalContributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
+
+      // Personal Adjustments
+      const personalAdjSum = (member.adjustments || []).reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+
+      // Global Adjustments (Share)
+      const memberCount = Math.max(1, member.memberCount)
+      const globalAdjSum = (member.fundAdjustments || []).reduce((sum, adj) => {
+         // Calculate share per member for this adjustment
+         const share = adj.amount / memberCount
+         return adj.type === 'INTEREST' ? sum + share : sum - share
+      }, 0)
+
+      const totalBalance = totalContributions + personalAdjSum + globalAdjSum
+
+      // Prepare transaction list
+      const transactions = [
+          ...member.contributions.map(c => ({
+              date: new Date(c.paymentDate),
+              desc: 'মাসিক চাঁদা',
+              details: `${getMonthName(c.month)} ${toBengaliNumber(c.year)}`,
+              amount: c.amount,
+              isNegative: false
+          })),
+          ...(member.adjustments || []).map(a => ({
+              date: new Date(a.date),
+              desc: a.type === 'INTEREST' ? 'মুনাফা/চার্জ' : 'মুনাফা/চার্জ',
+              details: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
+              amount: a.amount,
+              isNegative: a.type === 'CHARGE'
+          })),
+          ...(member.fundAdjustments || []).map(a => ({
+              date: new Date(a.date),
+              desc: 'গ্লোবাল শেয়ার',
+              details: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
+              amount: a.amount / memberCount,
+              isNegative: a.type === 'CHARGE'
+          }))
+      ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -308,58 +356,282 @@ export default function MemberDashboard() {
           <title>হিসাব স্টেটমেন্ট - ${member.name}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
-            body { font-family: 'Noto Sans Bengali', sans-serif; padding: 20px; color: #333; }
-            .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-            .summary { margin-bottom: 30px; padding: 15px; background: #f9fafb; border-radius: 8px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-            th { background-color: #f3f4f6; }
+            body {
+              font-family: 'Noto Sans Bengali', sans-serif;
+              padding: 0;
+              margin: 0;
+              background-color: #f0f2f5;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .page {
+              background: white;
+              width: 210mm;
+              min-height: 297mm;
+              margin: 20px auto;
+              padding: 40px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              position: relative;
+              box-sizing: border-box;
+            }
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 100px;
+              color: rgba(37, 99, 235, 0.03);
+              font-weight: bold;
+              pointer-events: none;
+              white-space: nowrap;
+              z-index: 0;
+            }
+            @media print {
+              body { background: none; margin: 0; }
+              .page { margin: 0; width: 100%; box-shadow: none; }
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+              color: white;
+              padding: 30px;
+              border-radius: 12px;
+              margin-bottom: 40px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              position: relative;
+              z-index: 1;
+            }
+            .brand h1 {
+              margin: 0;
+              font-size: 28px;
+              font-weight: 700;
+              letter-spacing: -0.5px;
+            }
+            .brand p {
+              margin: 5px 0 0;
+              font-size: 14px;
+              opacity: 0.9;
+            }
+            .statement-title {
+              text-align: right;
+            }
+            .statement-title h2 {
+              margin: 0;
+              font-size: 18px;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              opacity: 0.9;
+            }
+            .statement-title p {
+              margin: 5px 0 0;
+              font-size: 11px;
+              font-weight: 500;
+              color: rgba(255, 255, 255, 0.9);
+            }
+            .content {
+              position: relative;
+              z-index: 1;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1.5fr 1fr;
+              gap: 40px;
+              margin-bottom: 30px;
+            }
+            .info-box h3 {
+              font-size: 12px;
+              text-transform: uppercase;
+              color: #16a34a;
+              border-bottom: 2px solid #16a34a;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
+              letter-spacing: 1px;
+            }
+            .info-row {
+              display: flex;
+              margin-bottom: 6px;
+              font-size: 12px;
+              color: #334155;
+            }
+            .info-row span:first-child {
+              width: 100px;
+              color: #64748b;
+              font-weight: 500;
+            }
+            .info-row strong {
+              color: #0f172a;
+            }
+            table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 0;
+              font-size: 12px;
+              margin-bottom: 20px;
+            }
+            th {
+              background-color: #f0fdf4;
+              color: #166534;
+              font-weight: 600;
+              text-align: left;
+              padding: 10px;
+              border-top: 2px solid #16a34a;
+              border-bottom: 2px solid #16a34a;
+            }
+            td {
+              padding: 8px 10px;
+              border-bottom: 1px solid #e2e8f0;
+              color: #334155;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            .amount {
+              text-align: right;
+              font-family: monospace;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            .summary-box {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 15px;
+              margin-top: 20px;
+              break-inside: avoid;
+            }
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 6px 0;
+              font-size: 12px;
+              color: #475569;
+            }
+            .summary-row.total {
+              border-top: 2px dashed #cbd5e1;
+              margin-top: 15px;
+              padding-top: 20px;
+              font-weight: 700;
+              font-size: 18px;
+              color: #16a34a;
+            }
+            .footer {
+              margin-top: 60px;
+              text-align: center;
+              font-size: 12px;
+              color: #94a3b8;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 30px;
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Friends Development Society (FDS)</h1>
-            <h2>হিসাব স্টেটমেন্ট</h2>
-          </div>
-          <div class="summary">
-            <p><strong>সদস্য:</strong> ${member.name} (${member.accountNumber})</p>
-            <p><strong>মোট জমা:</strong> ৳${getTotalBalance().toFixed(2)}</p>
-            <p><strong>তারিখ:</strong> ${new Date().toLocaleDateString('bn-BD')}</p>
-          </div>
-          <table>
-            <thead>
-              <tr><th>বিবরণ</th><th>পরিমাণ</th><th>তারিখ</th></tr>
-            </thead>
-            <tbody>
-              ${member.contributions
-                .map(c => ({
-                    date: new Date(c.paymentDate),
-                    desc: `${getMonthName(c.month)} ${c.year} চাঁদা`,
-                    amount: c.amount,
-                    type: 'deposit'
-                }))
-                .concat(member.adjustments?.map(a => ({
-                    date: new Date(a.date),
-                    desc: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
-                    amount: a.type === 'CHARGE' ? -a.amount : a.amount,
-                    type: a.type
-                })) || [])
-                .concat(member.fundAdjustments?.map(a => ({
-                    date: new Date(a.date),
-                    desc: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
-                    amount: a.type === 'CHARGE' ? -(a.amount / Math.max(1, member.memberCount)) : (a.amount / Math.max(1, member.memberCount)),
-                    type: a.type
-                })) || [])
-                .sort((a, b) => b.date.getTime() - a.date.getTime())
-                .map(item => `
+          <div class="page">
+            <div class="watermark">FDS OFFICIAL</div>
+
+            <div class="header-banner">
+              <div class="brand">
+                <h1>Friends Development Society</h1>
+                <p>বন্ধুত্ব ও সহযোগিতার এক অনন্য বন্ধন</p>
+              </div>
+              <div class="statement-title">
+                <h2>হিসাব বিবরণী</h2>
+                <p>প্রিন্ট: ${new Date().toLocaleString('bn-BD')}</p>
+              </div>
+            </div>
+
+            <div class="content">
+              <div class="info-grid">
+                <div class="info-box">
+                  <h3>সদস্যের তথ্য</h3>
+                  <div class="info-row">
+                    <span>নাম:</span>
+                    <strong>${member.name}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>একাউন্ট নম্বর:</span>
+                    <strong>${toBengaliNumber(member.accountNumber)}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>মোবাইল:</span>
+                    <span>${toBengaliNumber(member.phone || 'N/A')}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>ঠিকানা:</span>
+                    <span>${member.address || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="info-box">
+                  <h3>সারসংক্ষেপ</h3>
+                  <div class="info-row">
+                    <span>মোট জমা:</span>
+                    <span class="amount" style="color: #16a34a">৳${toBengaliNumber(totalContributions)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>মুনাফা/চার্জ:</span>
+                    <span class="amount" style="color: ${personalAdjSum + globalAdjSum >= 0 ? '#16a34a' : '#dc2626'}">
+                      ৳${toBengaliNumber((personalAdjSum + globalAdjSum).toFixed(2))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+          <div class="table-container">
+            <h3>সাম্প্রতিক লেনদেন</h3>
+            <table>
+              <thead>
                 <tr>
-                  <td>${item.desc}</td>
-                  <td style="color: ${item.amount < 0 ? 'red' : 'green'}">৳${Math.abs(item.amount).toFixed(2)}</td>
-                  <td>${item.date.toLocaleDateString('bn-BD')}</td>
+                  <th>তারিখ</th>
+                  <th>বিবরণ</th>
+                  <th>বিস্তারিত</th>
+                  <th style="text-align: right">পরিমাণ</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${transactions.map(t => `
+                  <tr>
+                    <td>${t.date.toLocaleDateString('bn-BD')}</td>
+                    <td>${t.desc}</td>
+                    <td>${t.details}</td>
+                    <td class="amount" style="color: ${t.isNegative ? '#dc2626' : 'inherit'}">
+                      ${t.isNegative ? '-' : ''}৳${toBengaliNumber(t.amount.toFixed(2))}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row">
+              <span>মোট চাঁদা</span>
+              <span class="amount">৳${toBengaliNumber(totalContributions)}</span>
+            </div>
+            <div class="summary-row">
+              <span>ব্যক্তিগত মুনাফা/চার্জ</span>
+              <span class="amount" style="color: ${personalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(personalAdjSum.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row">
+              <span>গ্লোবাল মুনাফা/চার্জ (শেয়ার)</span>
+              <span class="amount" style="color: ${globalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(globalAdjSum.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row total">
+              <span>সর্বমোট স্থিতি</span>
+              <span class="amount">৳${toBengaliNumber(totalBalance.toFixed(2))}</span>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>এই স্টেটমেন্টটি কম্পিউটার দ্বারা প্রস্তুতকৃত এবং এর জন্য কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
+            <p>© ${new Date().getFullYear()} Friends Development Society (FDS)</p>
+          </div>
+          </div>
+          </div>
+
           <script>window.print();</script>
         </body>
         </html>
