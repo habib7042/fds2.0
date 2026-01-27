@@ -30,36 +30,22 @@ export function MemberCard({ member }: MemberCardProps) {
 
     try {
       const canvas = await html2canvas(cardRef.current, {
-        scale: 2,
+        scale: 3, // High quality
         backgroundColor: null,
         useCORS: true
       })
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return
+      // Convert to JPEG with 0.9 quality
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
-        if (navigator.share) {
-          const file = new File([blob], "fds-card.png", { type: "image/png" })
-          try {
-            await navigator.share({
-              title: 'FDS Account Card',
-              text: `Here is my FDS Member Card.`,
-              files: [file]
-            })
-          } catch (err) {
-            console.error("Share failed", err)
-          }
-        } else {
-          // Fallback download
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement("a")
-          a.href = url
-          a.download = "fds-card.png"
-          a.click()
-          URL.revokeObjectURL(url)
-          toast.success("কার্ড ডাউনলোড হয়েছে")
-        }
-      })
+      const a = document.createElement("a")
+      a.href = dataUrl
+      a.download = `fds-card-${member.accountNumber}.jpg`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+
+      toast.success("কার্ড ডাউনলোড হয়েছে")
     } catch (err) {
       toast.error("কার্ড শেয়ার করতে সমস্যা হয়েছে")
     }
