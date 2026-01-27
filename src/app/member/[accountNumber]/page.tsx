@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { MemberCard } from "@/components/member-card"
 
 interface Adjustment {
   id: string
@@ -743,32 +744,46 @@ export default function MemberDashboard() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Key Stats */}
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+
+        {/* Member Card Preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+           <MemberCard member={{ name: member.name, accountNumber: member.accountNumber, balance: getTotalBalance() }} />
+        </motion.div>
+
+        {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 gap-4">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
           >
-            <Card className="bg-primary/5 border-primary/20">
+            <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <DollarSign className="h-6 w-6 text-primary mb-2" />
-                <div className="text-2xl font-bold text-primary">৳{getTotalBalance().toFixed(2)}</div>
-                <p className="text-xs text-muted-foreground">বর্তমান স্থিতি</p>
+                <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center mb-2">
+                   <DollarSign className="h-5 w-5 text-green-700" />
+                </div>
+                <div className="text-2xl font-bold text-green-800">৳{toBengaliNumber(getTotalBalance().toFixed(2))}</div>
+                <p className="text-xs font-medium text-green-700">সর্বমোট জমা</p>
               </CardContent>
             </Card>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
           >
-            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+            <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <Calendar className="h-6 w-6 text-blue-600 mb-2" />
-                <div className="text-2xl font-bold text-blue-600">৳{getCurrentYearContributions()}</div>
-                <p className="text-xs text-muted-foreground">চলতি বছর</p>
+                <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center mb-2">
+                   <Calendar className="h-5 w-5 text-blue-700" />
+                </div>
+                <div className="text-2xl font-bold text-blue-800">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                <p className="text-xs font-medium text-blue-700">চলতি বছর</p>
               </CardContent>
             </Card>
           </motion.div>

@@ -127,7 +127,8 @@ export default function AdminDashboard() {
       type: "",
       amount: "",
       description: "",
-      target: "all"
+      target: "all",
+      memberId: ""
   })
 
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
@@ -321,7 +322,7 @@ export default function AdminDashboard() {
           })
           if (res.ok) {
               toast.success("সফলভাবে সম্পন্ন হয়েছে")
-              setAdjustment({ type: "", amount: "", description: "", target: "all" })
+              setAdjustment({ type: "", amount: "", description: "", target: "all", memberId: "" })
               fetchFundAdjustments()
               if (adjustment.target !== 'all') fetchMembers()
           } else {
@@ -1208,10 +1209,27 @@ export default function AdminDashboard() {
                               <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
                               <SelectContent>
                                   <SelectItem value="all">সকল সদস্য</SelectItem>
-                                  <SelectItem value="specific">নির্দিষ্ট সদস্য (শিঘ্রই আসছে)</SelectItem>
+                                  <SelectItem value="specific">নির্দিষ্ট সদস্য</SelectItem>
                               </SelectContent>
                           </Select>
                       </div>
+
+                      {adjustment.target === 'specific' && (
+                        <div className="space-y-2">
+                          <Label>সদস্য নির্বাচন করুন</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, memberId: v})}>
+                            <SelectTrigger><SelectValue placeholder="সদস্য নির্বাচন করুন" /></SelectTrigger>
+                            <SelectContent>
+                              {members.map(m => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.name} ({toBengaliNumber(m.accountNumber)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       <Button type="submit" disabled={loading}>সাবমিট করুন</Button>
                   </form>
                 </CardContent>

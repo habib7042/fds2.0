@@ -9,10 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Handshake, ArrowRight, ShieldCheck, Lock, X } from "lucide-react"
+import { Handshake, ArrowRight, ShieldCheck, Lock, X, Fingerprint } from "lucide-react"
 import Link from "next/link"
 import { InstallPWA } from "@/components/install-pwa"
 import { Keypad } from "@/components/ui/keypad"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [adminUsername, setAdminUsername] = useState("")
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [mounted, setMounted] = useState(false)
+  const [showBiometric, setShowBiometric] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -35,7 +37,18 @@ export default function LoginPage() {
       setMobileNumber(saved)
       setIsNumberSaved(true)
     }
+
+    // Simulating biometric availability
+    if (window.PublicKeyCredential) {
+       setShowBiometric(true)
+    }
   }, [])
+
+  const handleBiometricLogin = async () => {
+     // Placeholder for biometric logic
+     // In a real app, this would verify challenge with server
+     toast.info("বায়োমেট্রিক লগইন শীঘ্রই আসছে...")
+  }
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -176,17 +189,31 @@ export default function LoginPage() {
          </div>
 
          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
             className="w-full max-w-md space-y-8"
          >
             <div className="text-center md:text-left space-y-2">
-               <h2 className="text-3xl font-bold tracking-tight">স্বাগতম</h2>
-               <p className="text-muted-foreground">আপনার একাউন্টে প্রবেশ করতে তথ্য প্রদান করুন</p>
+               <motion.h2
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-3xl font-bold tracking-tight"
+               >
+                  স্বাগতম
+               </motion.h2>
+               <motion.p
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-muted-foreground"
+               >
+                  আপনার একাউন্টে প্রবেশ করতে তথ্য প্রদান করুন
+               </motion.p>
             </div>
 
-            <Card className="border-0 shadow-xl ring-1 ring-gray-900/5 dark:ring-white/10">
+            <Card className="border-0 shadow-xl ring-1 ring-gray-900/5 dark:ring-white/10 overflow-hidden">
                <CardContent className="pt-6">
                   <Tabs defaultValue="member" className="w-full">
                      <TabsList className="grid w-full grid-cols-2 mb-6 h-11 p-1 bg-muted/50 rounded-lg">
@@ -281,9 +308,23 @@ export default function LoginPage() {
                               className="my-4"
                            />
 
-                           <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={loading}>
-                              {loading ? "যাচাই করা হচ্ছে..." : "লগইন"}
-                           </Button>
+                           <div className="flex gap-3">
+                              <Button type="submit" className="flex-1 h-12 text-base font-semibold" disabled={loading}>
+                                 {loading ? "যাচাই করা হচ্ছে..." : "লগইন"}
+                              </Button>
+
+                              {showBiometric && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="h-12 w-12 p-0 shrink-0"
+                                  onClick={handleBiometricLogin}
+                                  title="Biometric Login"
+                                >
+                                  <Fingerprint className="h-6 w-6 text-primary" />
+                                </Button>
+                              )}
+                           </div>
                         </form>
                      </TabsContent>
                   </Tabs>
