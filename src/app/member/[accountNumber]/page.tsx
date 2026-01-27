@@ -1,12 +1,40 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Keypad } from "@/components/ui/keypad"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { MemberCard } from "@/components/member-card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
+interface Adjustment {
+  id: string
+  type: string
+  amount: number
+  date: string
+  description?: string
+}
+
+interface FundAdjustment {
+  id: string
+  type: string
+  amount: number
+  date: string
+  description?: string
+}
 
 interface Member {
   id: string
@@ -15,8 +43,22 @@ interface Member {
   phone?: string
   email?: string
   address?: string
+  dob?: string
+  nid?: string
+  fatherName?: string
+  motherName?: string
+  maritalStatus?: string
+  nomineeName?: string
+  nomineeNid?: string
+  nomineeRelation?: string
+  profileImage?: string
+  nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
+  adjustments: Adjustment[]
+  fundAdjustments: FundAdjustment[]
+  memberCount: number
+  isVerified?: boolean
 }
 
 interface Contribution {
@@ -30,18 +72,24 @@ interface Contribution {
 }
 
 const monthNames = {
-  "01": "জানুয়ারি",
-  "02": "ফেব্রুয়ারি",
-  "03": "মার্চ",
-  "04": "এপ্রিল",
-  "05": "মে",
-  "06": "জুন",
-  "07": "জুলাই",
-  "08": "আগস্ট",
-  "09": "সেপ্টেম্বর",
-  "10": "অক্টোবর",
-  "11": "নভেম্বর",
-  "12": "ডিসেম্বর"
+  "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
+  "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
+  "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 export default function MemberDashboard() {
@@ -49,19 +97,55 @@ export default function MemberDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isChangingPin, setIsChangingPin] = useState(false)
+  const [newPin, setNewPin] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+
   const params = useParams()
   const router = useRouter()
   const accountNumber = params.accountNumber as string
-  const printRef = useRef<HTMLDivElement>(null)
+
+  // Form state
+  const [formData, setFormData] = useState<Partial<Member>>({})
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [nomineeImageFile, setNomineeImageFile] = useState<File | null>(null)
 
   useEffect(() => {
     fetchMemberData()
   }, [accountNumber])
 
+  useEffect(() => {
+    if (member) {
+      setFormData({
+        dob: member.dob || "",
+        nid: member.nid || "",
+        fatherName: member.fatherName || "",
+        motherName: member.motherName || "",
+        maritalStatus: member.maritalStatus || "",
+        nomineeName: member.nomineeName || "",
+        nomineeNid: member.nomineeNid || "",
+        nomineeRelation: member.nomineeRelation || "",
+        phone: member.phone || "",
+        email: member.email || "",
+        address: member.address || "",
+      })
+    }
+  }, [member])
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready.then(async (registration) => {
+        const sub = await registration.pushManager.getSubscription()
+        setIsSubscribed(!!sub)
+      })
+    }
+  }, [])
+
   const fetchMemberData = async () => {
     try {
       const response = await fetch(`/api/member/${accountNumber}`)
-      
       if (response.ok) {
         const data = await response.json()
         setMember(data)
@@ -82,13 +166,131 @@ export default function MemberDashboard() {
     router.push("/")
   }
 
+  const handleSubscribe = async () => {
+    if (!member) return
+    if (!('serviceWorker' in navigator)) return
+
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
+      if (!vapidPublicKey) {
+          console.error("VAPID Public Key not found")
+          toast.error("Push notifications not configured")
+          return
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      })
+
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription, memberId: member.id })
+      })
+
+      setIsSubscribed(true)
+      toast.success("Notifications enabled!")
+    } catch (err) {
+      console.error("Subscription failed", err)
+      toast.error("Failed to enable notifications")
+    }
+  }
+
+  const handleChangePin = async () => {
+     if (!newPin || newPin.length < 4) {
+        toast.error("পিন অন্তত ৪ ডিজিট হতে হবে")
+        return
+     }
+
+     try {
+        const res = await fetch(`/api/member/${accountNumber}`, {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ pin: newPin })
+        })
+        if (res.ok) {
+           toast.success("পিন পরিবর্তন সফল হয়েছে")
+           setIsChangingPin(false)
+           setNewPin("")
+        } else {
+           toast.error("পিন পরিবর্তন ব্যর্থ হয়েছে")
+        }
+     } catch (e) {
+        toast.error("ত্রুটি হয়েছে")
+     }
+  }
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const data = new FormData()
+
+      // Append text fields
+      Object.keys(formData).forEach(key => {
+        const value = formData[key as keyof Member]
+        if (value) {
+          data.append(key, value as string)
+        }
+      })
+
+      // Append files
+      if (profileImageFile) {
+        data.append("profileImage", profileImageFile)
+      }
+      if (nomineeImageFile) {
+        data.append("nomineeImage", nomineeImageFile)
+      }
+
+      const response = await fetch(`/api/member/${accountNumber}`, {
+        method: "PATCH",
+        body: data,
+      })
+
+      if (response.ok) {
+        const updatedMember = await response.json()
+        setMember((prev) => prev ? { ...prev, ...updatedMember } : null)
+        setIsEditing(false)
+        setProfileImageFile(null)
+        setNomineeImageFile(null)
+        toast.success("প্রোফাইল আপডেট সফল হয়েছে")
+      } else {
+        toast.error("প্রোফাইল আপডেট ব্যর্থ হয়েছে")
+      }
+    } catch (error) {
+      toast.error("নেটওয়ার্ক ত্রুটি হয়েছে")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toBengaliNumber = (num: number | string) => {
+    if (num === undefined || num === null) return "০"
+    const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
+  }
+
   const getMonthName = (month: string) => {
     return monthNames[month as keyof typeof monthNames] || month
   }
 
-  const getTotalContributions = () => {
+  const getTotalBalance = () => {
     if (!member) return 0
-    return member.contributions.reduce((sum, contribution) => sum + contribution.amount, 0)
+    const contributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
+
+    // Personal Adjustments
+    const personalInterests = member.adjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + a.amount, 0) || 0
+    const personalCharges = member.adjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + a.amount, 0) || 0
+
+    // Global Adjustments (Share)
+    const memberCount = Math.max(1, member.memberCount)
+    const globalInterests = member.fundAdjustments?.filter(a => a.type === 'INTEREST').reduce((sum, a) => sum + (a.amount / memberCount), 0) || 0
+    const globalCharges = member.fundAdjustments?.filter(a => a.type === 'CHARGE').reduce((sum, a) => sum + (a.amount / memberCount), 0) || 0
+
+    return contributions + personalInterests - personalCharges + globalInterests - globalCharges
   }
 
   const getCurrentYearContributions = () => {
@@ -100,20 +302,54 @@ export default function MemberDashboard() {
   }
 
   const generatePDF = async () => {
-    if (!member || !printRef.current) return
-
+    if (!member) return
     setGeneratingPDF(true)
     try {
-      // Create print-friendly HTML content
-      const printContent = printRef.current.innerHTML
-      
-      // Create a new window for printing
       const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Unable to open print window')
-      }
+      if (!printWindow) throw new Error('Unable to open print window')
 
-      // Create the HTML document with proper styling for Bengali support
+      const totalContributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
+
+      // Personal Adjustments
+      const personalAdjSum = (member.adjustments || []).reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+
+      // Global Adjustments (Share)
+      const memberCount = Math.max(1, member.memberCount)
+      const globalAdjSum = (member.fundAdjustments || []).reduce((sum, adj) => {
+         // Calculate share per member for this adjustment
+         const share = adj.amount / memberCount
+         return adj.type === 'INTEREST' ? sum + share : sum - share
+      }, 0)
+
+      const totalBalance = totalContributions + personalAdjSum + globalAdjSum
+
+      // Prepare transaction list
+      const transactions = [
+          ...member.contributions.map(c => ({
+              date: new Date(c.paymentDate),
+              desc: 'মাসিক চাঁদা',
+              details: `${getMonthName(c.month)} ${toBengaliNumber(c.year)}`,
+              amount: c.amount,
+              isNegative: false
+          })),
+          ...(member.adjustments || []).map(a => ({
+              date: new Date(a.date),
+              desc: a.type === 'INTEREST' ? 'মুনাফা/চার্জ' : 'মুনাফা/চার্জ',
+              details: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
+              amount: a.amount,
+              isNegative: a.type === 'CHARGE'
+          })),
+          ...(member.fundAdjustments || []).map(a => ({
+              date: new Date(a.date),
+              desc: 'গ্লোবাল শেয়ার',
+              details: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
+              amount: a.amount / memberCount,
+              isNegative: a.type === 'CHARGE'
+          }))
+      ].sort((a, b) => b.date.getTime() - a.date.getTime())
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -122,425 +358,745 @@ export default function MemberDashboard() {
           <title>হিসাব স্টেটমেন্ট - ${member.name}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
             body {
               font-family: 'Noto Sans Bengali', sans-serif;
-              line-height: 1.6;
-              color: #333;
-              padding: 20px;
-              background: #fff;
+              padding: 0;
+              margin: 0;
+              background-color: #f0f2f5;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
-            
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+            .page {
+              background: white;
+              width: 210mm;
+              min-height: 297mm;
+              margin: 20px auto;
+              padding: 40px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              position: relative;
+              box-sizing: border-box;
+              border: 10px solid transparent;
+              border-image: linear-gradient(to right, #16a34a, #15803d) 1;
             }
-            
-            .header h1 {
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 120px;
+              color: rgba(22, 163, 74, 0.08);
+              font-weight: 800;
+              pointer-events: none;
+              white-space: nowrap;
+              z-index: 0;
+              border: 5px solid rgba(22, 163, 74, 0.1);
+              padding: 20px 50px;
+              border-radius: 20px;
+            }
+            @media print {
+              body { background: none; margin: 0; }
+              .page { margin: 0; width: 100%; box-shadow: none; border-width: 5px; }
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #16a34a 0%, #047857 100%);
+              color: white;
+              padding: 35px;
+              border-radius: 4px;
+              margin-bottom: 40px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              position: relative;
+              z-index: 1;
+              box-shadow: 0 4px 15px rgba(22, 163, 74, 0.2);
+            }
+            .brand h1 {
+              margin: 0;
+              font-size: 32px;
+              font-weight: 800;
+              letter-spacing: -0.5px;
+              text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            }
+            .brand p {
+              margin: 5px 0 0;
+              font-size: 14px;
+              opacity: 0.95;
+            }
+            .statement-title {
+              text-align: right;
+            }
+            .statement-title h2 {
+              margin: 0;
               font-size: 24px;
               font-weight: 700;
-              margin-bottom: 10px;
-              color: #1f2937;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              opacity: 1;
+              text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
             }
-            
-            .header h2 {
-              font-size: 18px;
+            .statement-title p {
+              margin: 5px 0 0;
+              font-size: 12px;
               font-weight: 600;
-              color: #4b5563;
+              color: rgba(255, 255, 255, 0.95);
             }
-            
-            .section {
-              margin-bottom: 25px;
+            .content {
+              position: relative;
+              z-index: 1;
             }
-            
-            .section-title {
-              font-size: 16px;
-              font-weight: 600;
-              margin-bottom: 15px;
-              color: #1f2937;
-              border-bottom: 1px solid #e5e7eb;
-              padding-bottom: 5px;
-            }
-            
             .info-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin-bottom: 25px;
+              grid-template-columns: 1.5fr 1fr;
+              gap: 50px;
+              margin-bottom: 40px;
             }
-            
-            .info-item {
-              margin-bottom: 8px;
+            .info-box {
+              padding: 20px;
+              background: #fcfcfc;
+              border-radius: 8px;
+              border-left: 4px solid #16a34a;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.02);
             }
-            
-            .info-label {
+            .info-box h3 {
+              font-size: 12px;
+              text-transform: uppercase;
+              color: #16a34a;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
+              letter-spacing: 1px;
+              font-weight: 700;
+            }
+            .info-row {
+              display: flex;
+              margin-bottom: 4px;
+              font-size: 11px;
+              color: #334155;
+            }
+            .info-row span:first-child {
+              width: 100px;
+              color: #64748b;
               font-weight: 600;
-              color: #4b5563;
             }
-            
-            .table-container {
-              overflow-x: auto;
-              margin: 20px 0;
+            .info-row strong {
+              color: #0f172a;
+              font-weight: 700;
             }
-            
             table {
               width: 100%;
-              border-collapse: collapse;
-              margin: 15px 0;
+              border-collapse: separate;
+              border-spacing: 0;
+              font-size: 11px;
+              margin-bottom: 20px;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              overflow: hidden;
             }
-            
-            th, td {
-              border: 1px solid #d1d5db;
-              padding: 8px 12px;
-              text-align: left;
-              font-size: 14px;
-            }
-            
             th {
-              background-color: #f3f4f6;
+              background-color: #16a34a;
+              color: white;
               font-weight: 600;
-              color: #1f2937;
+              text-align: left;
+              padding: 8px 10px;
+              text-transform: uppercase;
+              font-size: 11px;
+              letter-spacing: 0.5px;
             }
-            
+            td {
+              padding: 6px 10px;
+              border-bottom: 1px solid #e2e8f0;
+              color: #334155;
+            }
+            tr:last-child td {
+              border-bottom: none;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            tr:hover {
+              background-color: #f0fdf4;
+            }
             .amount {
               text-align: right;
-              font-weight: 500;
+              font-family: monospace;
+              font-size: 11px;
+              font-weight: 700;
             }
-            
-            .footer {
-              text-align: center;
-              margin-top: 40px;
-              padding-top: 20px;
-              border-top: 1px solid #e5e7eb;
-              font-size: 12px;
-              color: #6b7280;
-            }
-            
-            .special-note {
-              background-color: #fef3c7;
-              border: 1px solid #f59e0b;
+            .summary-box {
+              background: #f0fdf4;
+              border: 2px solid #16a34a;
+              border-radius: 12px;
               padding: 15px;
-              margin: 20px 0;
-              border-radius: 5px;
-              color: #92400e;
+              margin-top: 20px;
+              break-inside: avoid;
+              box-shadow: 0 4px 10px rgba(22, 163, 74, 0.05);
             }
-            
-            .special-note strong {
-              color: #78350f;
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
+              font-size: 12px;
+              color: #334155;
             }
-            
-            @media print {
-              body {
-                padding: 0;
-                margin: 0;
-              }
-              
-              .no-print {
-                display: none;
-              }
+            .summary-row.total {
+              border-top: 2px dashed #16a34a;
+              margin-top: 15px;
+              padding-top: 15px;
+              font-weight: 800;
+              font-size: 20px;
+              color: #16a34a;
             }
-            
-            @page {
-              margin: 1cm;
+            .footer {
+              margin-top: 60px;
+              text-align: center;
+              font-size: 12px;
+              color: #64748b;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 30px;
+            }
+            .footer p:last-child {
+              font-weight: 600;
+              color: #16a34a;
+              margin-top: 5px;
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Friends Development Society (FDS)</h1>
-            <h2>হিসাব স্টেটমেন্ট / Account Statement</h2>
+          <div class="page">
+            <div class="watermark">FDS OFFICIAL</div>
+
+            <div class="header-banner">
+              <div class="brand">
+                <h1>Friends Development Society</h1>
+                <p>বন্ধুত্ব ও সহযোগিতার এক অনন্য বন্ধন</p>
+              </div>
+              <div class="statement-title">
+                <h2>হিসাব বিবরণী</h2>
+                <p>প্রিন্ট: ${new Date().toLocaleString('bn-BD')}</p>
+              </div>
+            </div>
+
+            <div class="content">
+              <div class="info-grid">
+                <div class="info-box">
+                  <h3>সদস্যের তথ্য</h3>
+                  <div class="info-row">
+                    <span>নাম:</span>
+                    <strong>${member.name}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>একাউন্ট নম্বর:</span>
+                    <strong>${toBengaliNumber(member.accountNumber)}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>মোবাইল:</span>
+                    <span>${toBengaliNumber(member.phone || 'N/A')}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>ঠিকানা:</span>
+                    <span>${member.address || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="info-box">
+                  <h3>সারসংক্ষেপ</h3>
+                  <div class="info-row">
+                    <span>মোট জমা:</span>
+                    <span class="amount" style="color: #16a34a">৳${toBengaliNumber(totalContributions)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>মুনাফা/চার্জ:</span>
+                    <span class="amount" style="color: ${personalAdjSum + globalAdjSum >= 0 ? '#16a34a' : '#dc2626'}">
+                      ৳${toBengaliNumber((personalAdjSum + globalAdjSum).toFixed(2))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+          <div class="table-container">
+            <h3>সাম্প্রতিক লেনদেন</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>তারিখ</th>
+                  <th>বিবরণ</th>
+                  <th>বিস্তারিত</th>
+                  <th style="text-align: right">পরিমাণ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${transactions.map(t => `
+                  <tr>
+                    <td>${t.date.toLocaleDateString('bn-BD')}</td>
+                    <td>${t.desc}</td>
+                    <td>${t.details}</td>
+                    <td class="amount" style="color: ${t.isNegative ? '#dc2626' : 'inherit'}">
+                      ${t.isNegative ? '-' : ''}৳${toBengaliNumber(t.amount.toFixed(2))}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
           </div>
-          
-          <div class="info-grid">
-            <div class="section">
-              <div class="section-title">সদস্যের তথ্য / Member Information</div>
-              <div class="info-item">
-                <span class="info-label">একাউন্ট নম্বর:</span> ${member.accountNumber}
-              </div>
-              <div class="info-item">
-                <span class="info-label">নাম:</span> ${member.name}
-              </div>
-              <div class="info-item">
-                <span class="info-label">ফোন:</span> ${member.phone || 'N/A'}
-              </div>
-              <div class="info-item">
-                <span class="info-label">ইমেইল:</span> ${member.email || 'N/A'}
-              </div>
-              <div class="info-item">
-                <span class="info-label">যোগদানের তারিখ:</span> ${new Date(member.createdAt).toLocaleDateString('bn-BD')}
-              </div>
+
+          <div class="summary-box">
+            <div class="summary-row">
+              <span>মোট চাঁদা</span>
+              <span class="amount">৳${toBengaliNumber(totalContributions)}</span>
             </div>
-            
-            <div class="section">
-              <div class="section-title">হিসাব সারাংশ / Account Summary</div>
-              <div class="info-item">
-                <span class="info-label">মোট চাঁদা:</span> ৳${getTotalContributions().toFixed(2)}
-              </div>
-              <div class="info-item">
-                <span class="info-label">চলতি বছরের চাঁদা:</span> ৳${getCurrentYearContributions().toFixed(2)}
-              </div>
-              <div class="info-item">
-                <span class="info-label">মোট পেমেন্ট:</span> ${member.contributions.length} টি
-              </div>
-              <div class="info-item">
-                <span class="info-label">স্টেটমেন্ট তারিখ:</span> ${new Date().toLocaleDateString('bn-BD')}
-              </div>
+            <div class="summary-row">
+              <span>ব্যক্তিগত মুনাফা/চার্জ</span>
+              <span class="amount" style="color: ${personalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(personalAdjSum.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row">
+              <span>গ্লোবাল মুনাফা/চার্জ (শেয়ার)</span>
+              <span class="amount" style="color: ${globalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(globalAdjSum.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row total">
+              <span>সর্বমোট স্থিতি</span>
+              <span class="amount">৳${toBengaliNumber(totalBalance.toFixed(2))}</span>
             </div>
           </div>
-          
-          <div class="section">
-            <div class="section-title">চাঁদার ইতিহাস / Contribution History</div>
-            ${member.contributions.length > 0 ? `
-              <div class="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>মাস</th>
-                      <th>বছর</th>
-                      <th class="amount">পরিমাণ</th>
-                      <th>জমা দেওয়ার তারিখ</th>
-                      <th>বিবরণ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${member.contributions
-                      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-                      .map(contribution => `
-                        <tr>
-                          <td>${getMonthName(contribution.month)}</td>
-                          <td>${contribution.year}</td>
-                          <td class="amount">৳${contribution.amount.toFixed(2)}</td>
-                          <td>${new Date(contribution.paymentDate).toLocaleDateString('bn-BD')}</td>
-                          <td>${contribution.description || '-'}</td>
-                        </tr>
-                      `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            ` : '<p style="text-align: center; color: #6b7280; padding: 20px;">এখনো কোন চাঁদা জমা দেওয়া হয়নি</p>'}
-          </div>
-          
-          ${member.address ? `
-            <div class="section">
-              <div class="section-title">ঠিকানা / Address</div>
-              <p style="background-color: #f9fafb; padding: 15px; border: 1px solid #e5e7eb; border-radius: 5px;">${member.address.replace(/\n/g, '<br>')}</p>
-            </div>
-          ` : ''}
-          
-          ${member.contributions.length === 0 ? `
-            <div class="special-note">
-              <strong>বিশেষ নোট:</strong> এই সদস্যটি এখনো কোনো চাঁদা জমা দেয়নি। অনুগ্রহ করে নিয়মিত চাঁদা জমা দেওয়ার জন্য অনুরোধ করা হলো।
-            </div>
-          ` : ''}
-          
+
           <div class="footer">
-            <p>Friends Development Society (FDS) - স্বচ্ছতা ও জবাবদিহিতার প্রতিশ্রুতি</p>
-            <p>Generated on: ${new Date().toLocaleString('bn-BD')}</p>
+            <p>এই স্টেটমেন্টটি কম্পিউটার দ্বারা প্রস্তুতকৃত এবং এর জন্য কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
+            <p>© ${new Date().getFullYear()} Friends Development Society (FDS)</p>
           </div>
-          
-          <div class="no-print" style="text-align: center; margin-top: 20px;">
-            <p style="color: #6b7280; font-size: 14px;">দয়া করে Print বা Save as PDF বাটন ব্যবহার করুন</p>
-            <p style="color: #6b7280; font-size: 12px;">Please use Print or Save as PDF button</p>
           </div>
+          </div>
+
+          <script>window.print();</script>
         </body>
         </html>
       `
-
       printWindow.document.write(htmlContent)
       printWindow.document.close()
-      
-      // Wait for the content to load, then trigger print
-      printWindow.onload = () => {
-        printWindow.print()
-        // Note: We don't close the window automatically as it might interrupt the print dialog
-      }
-      
     } catch (error) {
-      console.error('PDF generation failed:', error)
-      setError('PDF তৈরি করতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।')
+      console.error(error)
+      setError('PDF generation failed')
     } finally {
       setGeneratingPDF(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
-  }
-
-  if (!member) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Member not found</div>
-      </div>
-    )
-  }
+  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>
+  if (!member) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">সদস্য ড্যাশবোর্ড</h1>
-            <p className="text-gray-600">Member Dashboard</p>
-          </div>
-          <div className="flex gap-4">
-            <Button 
-              onClick={generatePDF} 
-              disabled={generatingPDF || loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {generatingPDF ? "প্রিন্ট প্রিভিউ তৈরি হচ্ছে..." : "হিসাব স্টেটমেন্ট প্রিন্ট করুন"}
-            </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              লগআউট
-            </Button>
-          </div>
-        </div>
-
-        {error && (
-          <Alert className="mb-4" variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">একাউন্ট তথ্য</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div><strong>একাউন্ট নম্বর:</strong> {member.accountNumber}</div>
-                <div><strong>নাম:</strong> {member.name}</div>
-                <div><strong>ফোন:</strong> {member.phone || "N/A"}</div>
-                <div><strong>ইমেইল:</strong> {member.email || "N/A"}</div>
-                <div><strong>যোগদানের তারিখ:</strong> {new Date(member.createdAt).toLocaleDateString("bn-BD")}</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">মোট চাঁদা</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                ৳{getTotalContributions().toFixed(2)}
-              </div>
-              <p className="text-sm text-gray-600 mt-2">
-                সকল সময়ের মোট চাঁদা
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">চলতি বছরের চাঁদা</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                ৳{getCurrentYearContributions().toFixed(2)}
-              </div>
-              <p className="text-sm text-gray-600 mt-2">
-                {new Date().getFullYear()} সালের মোট চাঁদা
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>চাঁদার ইতিহাস</CardTitle>
-            <CardDescription>
-              আপনার সকল মাসিক চাঁদার তালিকা
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {member.contributions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>মাস</TableHead>
-                      <TableHead>বছর</TableHead>
-                      <TableHead>পরিমাণ</TableHead>
-                      <TableHead>জমা দেওয়ার তারিখ</TableHead>
-                      <TableHead>বিবরণ</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {member.contributions
-                      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-                      .map((contribution) => (
-                        <TableRow key={contribution.id}>
-                          <TableCell>{getMonthName(contribution.month)}</TableCell>
-                          <TableCell>{contribution.year}</TableCell>
-                          <TableCell className="font-medium">৳{contribution.amount.toFixed(2)}</TableCell>
-                          <TableCell>{new Date(contribution.paymentDate).toLocaleDateString("bn-BD")}</TableCell>
-                          <TableCell>{contribution.description || "-"}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                এখনো কোন চাঁদা জমা দেওয়া হয়নি
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {member.address && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>ঠিকানা</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{member.address}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Hidden print content for PDF generation */}
-        <div ref={printRef} className="hidden">
-          {/* This div is used as a reference for PDF generation */}
-          <div className="print-content">
-            <h1>Friends Development Society (FDS)</h1>
-            <h2>হিসাব স্টেটমেন্ট</h2>
-            <div className="member-info">
-              <p>একাউন্ট নম্বর: {member.accountNumber}</p>
-              <p>নাম: {member.name}</p>
-              <p>ফোন: {member.phone || 'N/A'}</p>
-              <p>ইমেইল: {member.email || 'N/A'}</p>
-              <p>যোগদানের তারিখ: {new Date(member.createdAt).toLocaleDateString('bn-BD')}</p>
+    <div className="min-h-screen bg-gray-50/50 pb-20 md:pb-8">
+      {/* Modern Profile Header */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white">
+         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+               <Avatar className="h-9 w-9 border-2 border-white/30">
+                  <AvatarImage src={member.profileImage} alt={member.name} />
+                  <AvatarFallback className="bg-white/20 text-white font-bold">{member.name.charAt(0)}</AvatarFallback>
+               </Avatar>
+               <div>
+                  <h1 className="text-sm font-bold leading-none">{member.name}</h1>
+                  <p className="text-[10px] text-white/80 mt-0.5 font-mono">AC: {toBengaliNumber(member.accountNumber)}</p>
+               </div>
             </div>
-            <div className="contributions">
-              {member.contributions.map(contribution => (
-                <div key={contribution.id}>
-                  <p>মাস: {getMonthName(contribution.month)}</p>
-                  <p>বছর: {contribution.year}</p>
-                  <p>পরিমাণ: ৳{contribution.amount.toFixed(2)}</p>
-                  <p>তারিখ: {new Date(contribution.paymentDate).toLocaleDateString('bn-BD')}</p>
-                  <p>বিবরণ: {contribution.description || '-'}</p>
-                </div>
-              ))}
+
+            <div className="flex items-center gap-1">
+               <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={() => router.push(`/member/${accountNumber}/community`)}>
+                  <MessageSquare className="h-5 w-5" />
+               </Button>
+               {!isSubscribed && (
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={handleSubscribe}>
+                     <Bell className="h-5 w-5" />
+                  </Button>
+               )}
+
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white">
+                        <MoreVertical className="h-5 w-5" />
+                     </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                     <DropdownMenuItem onClick={handleLogout} className="text-red-500 font-medium">
+                        <LogOut className="h-4 w-4 mr-2" /> লগআউট
+                     </DropdownMenuItem>
+                  </DropdownMenuContent>
+               </DropdownMenu>
             </div>
-          </div>
-        </div>
+         </div>
       </div>
+
+      <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
+
+        {/* Member Card Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+           <MemberCard member={{ name: member.name, accountNumber: member.accountNumber, balance: getTotalBalance() }} />
+        </motion.div>
+
+        {/* Quick Actions / Stats */}
+        <div className="grid grid-cols-2 gap-3">
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <DollarSign className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">বর্তমান স্থিতি</div>
+                 </div>
+              </CardContent>
+           </Card>
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Calendar className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">চলতি বছর</div>
+                 </div>
+              </CardContent>
+           </Card>
+        </div>
+
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="history" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100/80 rounded-xl mb-6">
+            <TabsTrigger value="history" className="rounded-lg text-xs font-medium">লেনদেন</TabsTrigger>
+            <TabsTrigger value="profile" className="rounded-lg text-xs font-medium">প্রোফাইল</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="history" className="space-y-4 min-h-[300px]">
+            <div className="flex justify-end">
+              <Button size="sm" variant="outline" onClick={generatePDF} disabled={generatingPDF}>
+                <Download className="mr-2 h-4 w-4" />
+                {generatingPDF ? "তৈরি হচ্ছে..." : "স্টেটমেন্ট ডাউনলোড"}
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Merge Contributions and Adjustments */}
+              {(() => {
+                  const allItems = [
+                      ...member.contributions.map(c => ({
+                          id: c.id,
+                          type: 'CONTRIBUTION',
+                          amount: c.amount,
+                          date: c.paymentDate,
+                          title: `${getMonthName(c.month)} ${c.year}`,
+                          subtitle: 'মাসিক চাঁদা'
+                      })),
+                      ...(member.adjustments || []).map(a => ({
+                          id: a.id,
+                          type: a.type,
+                          amount: a.amount,
+                          date: a.date,
+                          title: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা' : 'ব্যাংক চার্জ',
+                          subtitle: a.description || ''
+                      })),
+                      ...(member.fundAdjustments || []).map(a => ({
+                          id: a.id,
+                          type: a.type,
+                          amount: a.amount / Math.max(1, member.memberCount),
+                          date: a.date,
+                          title: a.type === 'INTEREST' ? 'ব্যাংক মুনাফা (শেয়ার)' : 'ব্যাংক চার্জ (শেয়ার)',
+                          subtitle: a.description || ''
+                      }))
+                  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+                  if (allItems.length === 0) {
+                      return (
+                        <div className="text-center py-10 text-muted-foreground">
+                          কোন লেনদেন নেই
+                        </div>
+                      )
+                  }
+
+                  return allItems.map((item, index) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card className="overflow-hidden">
+                        <div className="flex items-center p-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                              {item.title}
+                              {item.type === 'CONTRIBUTION' && <Badge variant="secondary" className="text-xs font-normal">Paid</Badge>}
+                            </h3>
+                            <p className="text-xs text-muted-foreground flex items-center mt-1">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {new Date(item.date).toLocaleDateString("bn-BD")}
+                              {item.subtitle && <span className="ml-2">• {item.subtitle}</span>}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`block text-lg font-bold ${item.type === 'CHARGE' ? 'text-red-600' : 'text-green-600'}`}>
+                              {item.type === 'CHARGE' ? '-' : '+'}৳{item.amount.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  ))
+              })()}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="profile">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
+                <div className="flex gap-2">
+                  <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Lock className="h-4 w-4 mr-2" /> পিন পরিবর্তন
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>পিন পরিবর্তন করুন</DialogTitle>
+                        <DialogDescription>আপনার একাউন্টের নিরাপত্তা নিশ্চিত করতে নতুন পিন সেট করুন।</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>নতুন পিন</Label>
+                          <Input
+                            type="password"
+                            value={newPin}
+                            readOnly
+                            placeholder="****"
+                            className="text-center text-xl tracking-widest h-12"
+                          />
+                        </div>
+                        <Keypad
+                          onInput={(n) => { if (newPin.length < 6) setNewPin(p => p + n) }}
+                          onDelete={() => setNewPin(p => p.slice(0, -1))}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button onClick={handleChangePin}>পরিবর্তন করুন</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4 mr-2" /> এডিট করুন
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>প্রোফাইল এডিট করুন</DialogTitle>
+                        <DialogDescription>
+                          আপনার তথ্যে পরিবর্তন এনে সংরক্ষণ করুন।
+                        </DialogDescription>
+                      </DialogHeader>
+                      <form onSubmit={handleUpdateProfile} className="space-y-4 py-4">
+                        {/* Photo Uploads */}
+                        <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="profileImage">আপনার ছবি</Label>
+                              <Input
+                                  id="profileImage"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)}
+                              />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="nomineeImage">নমিনির ছবি</Label>
+                              <Input
+                                  id="nomineeImage"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => setNomineeImageFile(e.target.files?.[0] || null)}
+                              />
+                          </div>
+                        </div>
+
+                        {/* Basic Info */}
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">মোবাইল নম্বর</Label>
+                          <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">ইমেইল</Label>
+                          <Input id="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="address">ঠিকানা</Label>
+                          <Textarea id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="dob">জন্মতারিখ</Label>
+                              <Input id="dob" type="date" value={formData.dob} onChange={(e) => setFormData({...formData, dob: e.target.value})} />
+                          </div>
+                          <div className="space-y-2">
+                              <Label htmlFor="maritalStatus">বৈবাহিক অবস্থা</Label>
+                              <Select value={formData.maritalStatus} onValueChange={(v) => setFormData({...formData, maritalStatus: v})}>
+                                <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="married">বিবাহিত</SelectItem>
+                                    <SelectItem value="unmarried">অবিবাহিত</SelectItem>
+                                </SelectContent>
+                              </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="nid">জাতীয় পরিচয়পত্র/জন্ম নিবন্ধন নম্বর</Label>
+                          <Input id="nid" value={formData.nid} onChange={(e) => setFormData({...formData, nid: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="fatherName">বাবার নাম</Label>
+                          <Input id="fatherName" value={formData.fatherName} onChange={(e) => setFormData({...formData, fatherName: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="motherName">মায়ের নাম</Label>
+                          <Input id="motherName" value={formData.motherName} onChange={(e) => setFormData({...formData, motherName: e.target.value})} />
+                        </div>
+
+                        <div className="border-t pt-4 mt-4">
+                          <h4 className="font-semibold mb-3">নমিনির তথ্য</h4>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeName">নমিনির নাম</Label>
+                                <Input id="nomineeName" value={formData.nomineeName} onChange={(e) => setFormData({...formData, nomineeName: e.target.value})} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeRelation">সম্পর্ক</Label>
+                                <Input id="nomineeRelation" value={formData.nomineeRelation} onChange={(e) => setFormData({...formData, nomineeRelation: e.target.value})} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="nomineeNid">নমিনির এনআইডি/জন্ম নিবন্ধন</Label>
+                                <Input id="nomineeNid" value={formData.nomineeNid} onChange={(e) => setFormData({...formData, nomineeNid: e.target.value})} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <DialogFooter>
+                          <Button type="submit" disabled={saving}>
+                            {saving ? "সংরক্ষণ হচ্ছে..." : "সংরক্ষণ করুন"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+
+                {/* Profile Image Display */}
+                <div className="flex justify-center mb-6">
+                   <div className="flex flex-col items-center gap-2">
+                      <div className="h-32 w-32 rounded-full border-4 border-muted overflow-hidden bg-muted flex items-center justify-center relative">
+                         {member.profileImage ? (
+                            <img src={member.profileImage} alt="Profile" className="h-full w-full object-cover" />
+                         ) : (
+                            <User className="h-16 w-16 text-muted-foreground" />
+                         )}
+                      </div>
+                      <Badge variant="outline">আপনার ছবি</Badge>
+                   </div>
+                </div>
+
+                <div className="grid gap-1">
+                  <p className="text-sm font-medium leading-none">নাম</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm text-muted-foreground">{member.name}</p>
+                    {member.isVerified && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Verified
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">একাউন্ট নম্বর</p>
+                   <p className="text-sm text-muted-foreground">{member.accountNumber}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ফোন</p>
+                   <p className="text-sm text-muted-foreground">{member.phone || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ইমেইল</p>
+                   <p className="text-sm text-muted-foreground">{member.email || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">ঠিকানা</p>
+                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">{member.address || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">জন্মতারিখ</p>
+                   <p className="text-sm text-muted-foreground">{member.dob || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">এনআইডি/জন্ম নিবন্ধন</p>
+                   <p className="text-sm text-muted-foreground">{member.nid || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">বাবার নাম</p>
+                   <p className="text-sm text-muted-foreground">{member.fatherName || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">মায়ের নাম</p>
+                   <p className="text-sm text-muted-foreground">{member.motherName || "তথ্য নেই"}</p>
+                </div>
+                <div className="grid gap-1">
+                   <p className="text-sm font-medium leading-none">বৈবাহিক অবস্থা</p>
+                   <p className="text-sm text-muted-foreground">
+                      {member.maritalStatus === "married" ? "বিবাহিত" : member.maritalStatus === "unmarried" ? "অবিবাহিত" : "তথ্য নেই"}
+                   </p>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                   <h4 className="font-semibold mb-4">নমিনির তথ্য</h4>
+
+                   {/* Nominee Image Display */}
+                   <div className="flex justify-start mb-6">
+                      <div className="flex flex-col items-center gap-2">
+                         <div className="h-24 w-24 rounded-full border-4 border-muted overflow-hidden bg-muted flex items-center justify-center relative">
+                            {member.nomineeImage ? (
+                               <img src={member.nomineeImage} alt="Nominee" className="h-full w-full object-cover" />
+                            ) : (
+                               <User className="h-10 w-10 text-muted-foreground" />
+                            )}
+                         </div>
+                         <Badge variant="outline">নমিনির ছবি</Badge>
+                      </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-1">
+                         <p className="text-sm font-medium leading-none">নাম</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeName || "তথ্য নেই"}</p>
+                      </div>
+                      <div className="grid gap-1">
+                         <p className="text-sm font-medium leading-none">সম্পর্ক</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeRelation || "তথ্য নেই"}</p>
+                      </div>
+                      <div className="grid gap-1 col-span-2">
+                         <p className="text-sm font-medium leading-none">এনআইডি/জন্ম নিবন্ধন</p>
+                         <p className="text-sm text-muted-foreground">{member.nomineeNid || "তথ্য নেই"}</p>
+                      </div>
+                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   )
 }
