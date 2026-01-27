@@ -119,7 +119,9 @@ export function MemberCard({ member }: MemberCardProps) {
              <div className="flex justify-between items-end">
                 <div>
                    <div className="text-xs opacity-70 uppercase tracking-wider">Card Holder</div>
-                   <div className="font-medium text-lg truncate max-w-[200px]">{member.name}</div>
+                   <div className="font-medium text-lg max-w-[200px]" style={{ fontFamily: 'Noto Sans Bengali, sans-serif' }}>
+                      {member.name}
+                   </div>
                 </div>
                 <div className="text-xs opacity-50 font-mono">VALID PERMANENT</div>
              </div>

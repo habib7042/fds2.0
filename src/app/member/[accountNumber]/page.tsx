@@ -18,6 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { MemberCard } from "@/components/member-card"
+import { startRegistration } from "@simplewebauthn/browser"
 
 interface Adjustment {
   id: string
@@ -219,6 +220,44 @@ export default function MemberDashboard() {
         }
      } catch (e) {
         toast.error("ত্রুটি হয়েছে")
+     }
+  }
+
+  const handleRegisterBiometric = async () => {
+     if (!member) return
+     try {
+        // 1. Get options
+        const resp = await fetch("/api/auth/webauthn/register", {
+           method: "POST",
+           body: JSON.stringify({ action: "generate-options", memberId: member.id })
+        })
+
+        if (!resp.ok) throw new Error("Failed to get options")
+        const options = await resp.json()
+
+        // 2. Create Credential
+        const attResp = await startRegistration(options)
+
+        // 3. Verify
+        const verifyResp = await fetch("/api/auth/webauthn/register", {
+           method: "POST",
+           body: JSON.stringify({
+              action: "verify",
+              memberId: member.id,
+              attestationResponse: attResp
+           })
+        })
+
+        const verification = await verifyResp.json()
+
+        if (verification.success) {
+           toast.success("ফিঙ্গারপ্রিন্ট সফলভাবে যুক্ত হয়েছে")
+        } else {
+           toast.error("ফিঙ্গারপ্রিন্ট যুক্ত করতে ব্যর্থ")
+        }
+     } catch (e) {
+        console.error(e)
+        toast.error("ত্রুটি হয়েছে। আপনার ডিভাইসটি সমর্থিত কিনা পরীক্ষা করুন।")
      }
   }
 
@@ -880,6 +919,9 @@ export default function MemberDashboard() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
                 <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleRegisterBiometric}>
+                     <ImageIcon className="h-4 w-4 mr-2" /> ফিঙ্গারপ্রিন্ট যুক্ত করুন
+                  </Button>
                   <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
