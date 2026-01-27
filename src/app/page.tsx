@@ -135,39 +135,42 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-background">
       {/* Left Side - Hero/Branding */}
-      <div className="hidden md:flex md:w-1/2 bg-primary/5 lg:bg-primary/10 flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-indigo-900 via-purple-900 to-rose-900 text-white flex-col justify-between p-12 relative overflow-hidden">
         <div className="z-10">
            <div className="flex items-center gap-3 mb-8">
-             <img src="/logo.png" alt="FDS Logo" className="w-16 h-16 object-contain" />
+             <img src="/logo.png" alt="FDS Logo" className="w-16 h-16 object-contain bg-white/20 rounded-full p-2" />
              <span className="text-3xl font-bold tracking-tight">FDS</span>
            </div>
-           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight mb-6">
+           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-green-200 to-purple-200">
              বন্ধুত্ব ও সহযোগিতার <br /> এক অনন্য বন্ধন
            </h1>
-           <p className="text-lg text-muted-foreground max-w-md">
+           <p className="text-lg text-blue-100/90 max-w-md">
              Friends Development Society (FDS) - একটি শক্তিশালী আর্থিক ভিত্তি গড়ার লক্ষ্যে আমাদের সম্মিলিত প্রচেষ্টা।
            </p>
         </div>
 
         <div className="z-10 mt-12 space-y-8">
-           <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground">
+           <div className="flex items-center gap-4 text-sm font-medium text-white/80">
               <div className="flex items-center gap-2">
-                 <ShieldCheck className="w-5 h-5 text-green-600" /> নিরাপদ
+                 <ShieldCheck className="w-5 h-5 text-green-400" /> নিরাপদ
               </div>
               <div className="flex items-center gap-2">
-                 <Lock className="w-5 h-5 text-blue-600" /> সুরক্ষিত
+                 <Lock className="w-5 h-5 text-blue-400" /> সুরক্ষিত
               </div>
               <div className="flex items-center gap-2">
-                 <Handshake className="w-5 h-5 text-primary" /> বিশ্বস্ত
+                 <Handshake className="w-5 h-5 text-purple-400" /> বিশ্বস্ত
               </div>
            </div>
 
-           <InstallPWA />
+           <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md">
+              <InstallPWA />
+           </div>
         </div>
 
         {/* Decorative Circles */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-primary/10 blur-3xl opacity-50"></div>
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl opacity-50"></div>
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-blue-500/20 blur-3xl mix-blend-overlay"></div>
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-red-500/20 blur-3xl mix-blend-overlay"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full h-full bg-gradient-to-tr from-transparent via-transparent to-green-500/10 opacity-50"></div>
       </div>
 
       {/* Right Side - Login Form */}

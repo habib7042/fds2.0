@@ -76,7 +76,8 @@ export function MemberCard({ member }: MemberCardProps) {
           boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-blue-600/30 z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-rose-900 z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/20 via-transparent to-red-500/20 mix-blend-overlay z-0"></div>
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
            <svg width="100%" height="100%">

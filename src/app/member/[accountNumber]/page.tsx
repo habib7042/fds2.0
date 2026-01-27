@@ -688,37 +688,37 @@ export default function MemberDashboard() {
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20 md:pb-8">
       {/* Modern Profile Header */}
-      <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white">
          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-               <Avatar className="h-9 w-9 border border-gray-200">
+               <Avatar className="h-9 w-9 border-2 border-white/30">
                   <AvatarImage src={member.profileImage} alt={member.name} />
-                  <AvatarFallback className="bg-primary/10 text-primary">{member.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback className="bg-white/20 text-white font-bold">{member.name.charAt(0)}</AvatarFallback>
                </Avatar>
                <div>
-                  <h1 className="text-sm font-bold text-gray-900 leading-none">{member.name}</h1>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">AC: {toBengaliNumber(member.accountNumber)}</p>
+                  <h1 className="text-sm font-bold leading-none">{member.name}</h1>
+                  <p className="text-[10px] text-white/80 mt-0.5 font-mono">AC: {toBengaliNumber(member.accountNumber)}</p>
                </div>
             </div>
 
             <div className="flex items-center gap-1">
-               <Button variant="ghost" size="icon" className="text-gray-500" onClick={() => router.push(`/member/${accountNumber}/community`)}>
+               <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={() => router.push(`/member/${accountNumber}/community`)}>
                   <MessageSquare className="h-5 w-5" />
                </Button>
                {!isSubscribed && (
-                  <Button variant="ghost" size="icon" className="text-gray-500" onClick={handleSubscribe}>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" onClick={handleSubscribe}>
                      <Bell className="h-5 w-5" />
                   </Button>
                )}
 
                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" size="icon" className="text-gray-500">
+                     <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white">
                         <MoreVertical className="h-5 w-5" />
                      </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                     <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                     <DropdownMenuItem onClick={handleLogout} className="text-red-500 font-medium">
                         <LogOut className="h-4 w-4 mr-2" /> লগআউট
                      </DropdownMenuItem>
                   </DropdownMenuContent>

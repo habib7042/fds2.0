@@ -877,40 +877,40 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-white to-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট সদস্য</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-blue-700">মোট সদস্য</CardTitle>
+              <Users className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{toBengaliNumber(members.length)}</div>
+              <div className="text-2xl font-bold text-blue-900">{toBengaliNumber(members.length)}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-white to-green-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">মোট তহবিল</CardTitle>
+              <CardTitle className="text-sm font-medium text-green-700">মোট তহবিল</CardTitle>
               <Wallet className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-white to-purple-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">জমা (চলতি মাস)</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-purple-700">জমা (চলতি মাস)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div>
+              <div className="text-2xl font-bold text-purple-900">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div>
             </CardContent>
           </Card>
-           <Card>
+           <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-white to-red-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">বকেয়া সদস্য</CardTitle>
-              <AlertCircle className="h-4 w-4 text-destructive" />
+              <CardTitle className="text-sm font-medium text-red-700">বকেয়া সদস্য</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div>
+              <div className="text-2xl font-bold text-red-600">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div>
             </CardContent>
           </Card>
         </div>
