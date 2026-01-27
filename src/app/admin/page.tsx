@@ -847,19 +847,19 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center">
+        <div className="hidden md:flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">অ্যাডমিন ড্যাশবোর্ড</h1>
-            <p className="text-muted-foreground">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-800">অ্যাডমিন ড্যাশবোর্ড</h1>
+            <p className="text-gray-500">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={() => setShowAddMember(true)}>
+            <Button onClick={() => setShowAddMember(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
               <UserPlus className="mr-2 h-4 w-4" /> সদস্য যোগ
             </Button>
-            <Button onClick={() => setShowAddContribution(true)} variant="secondary">
+            <Button onClick={() => setShowAddContribution(true)} className="bg-green-600 hover:bg-green-700 text-white">
               <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
             </Button>
-            <Button onClick={() => setShowCreatePoll(true)} variant="outline">
+            <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50">
               <BarChart2 className="mr-2 h-4 w-4" /> নতুন পোল
             </Button>
             <Button onClick={handleLogout} variant="destructive">
