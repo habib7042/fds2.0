@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2 } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { MemberCard } from "@/components/member-card"
-import { startRegistration } from "@simplewebauthn/browser"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface Adjustment {
   id: string
@@ -220,44 +220,6 @@ export default function MemberDashboard() {
         }
      } catch (e) {
         toast.error("ত্রুটি হয়েছে")
-     }
-  }
-
-  const handleRegisterBiometric = async () => {
-     if (!member) return
-     try {
-        // 1. Get options
-        const resp = await fetch("/api/auth/webauthn/register", {
-           method: "POST",
-           body: JSON.stringify({ action: "generate-options", memberId: member.id })
-        })
-
-        if (!resp.ok) throw new Error("Failed to get options")
-        const options = await resp.json()
-
-        // 2. Create Credential
-        const attResp = await startRegistration(options)
-
-        // 3. Verify
-        const verifyResp = await fetch("/api/auth/webauthn/register", {
-           method: "POST",
-           body: JSON.stringify({
-              action: "verify",
-              memberId: member.id,
-              attestationResponse: attResp
-           })
-        })
-
-        const verification = await verifyResp.json()
-
-        if (verification.success) {
-           toast.success("ফিঙ্গারপ্রিন্ট সফলভাবে যুক্ত হয়েছে")
-        } else {
-           toast.error("ফিঙ্গারপ্রিন্ট যুক্ত করতে ব্যর্থ")
-        }
-     } catch (e) {
-        console.error(e)
-        toast.error("ত্রুটি হয়েছে। আপনার ডিভাইসটি সমর্থিত কিনা পরীক্ষা করুন।")
      }
   }
 
@@ -724,68 +686,50 @@ export default function MemberDashboard() {
   if (!member) return null
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10 border-2 border-primary">
-              <AvatarImage src={member.profileImage} alt={member.name} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-bold">
-                {member.name.charAt(0)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex items-center gap-1">
-                <h1 className="text-sm font-semibold leading-tight">{member.name}</h1>
-                {member.isVerified && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <CheckCircle2 className="h-4 w-4 text-blue-500 fill-blue-500 text-white" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>যাচাইকৃত সদস্য</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">AC: {member.accountNumber}</p>
+    <div className="min-h-screen bg-gray-50/50 pb-20 md:pb-8">
+      {/* Modern Profile Header */}
+      <div className="bg-white border-b sticky top-0 z-20 shadow-sm">
+         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+               <Avatar className="h-9 w-9 border border-gray-200">
+                  <AvatarImage src={member.profileImage} alt={member.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary">{member.name.charAt(0)}</AvatarFallback>
+               </Avatar>
+               <div>
+                  <h1 className="text-sm font-bold text-gray-900 leading-none">{member.name}</h1>
+                  <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">AC: {toBengaliNumber(member.accountNumber)}</p>
+               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {!isSubscribed && (
-                <Button variant="ghost" size="icon" onClick={handleSubscribe} className="text-primary">
-                    <Bell className="h-5 w-5" />
-                </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden md:flex gap-2"
-              onClick={() => router.push(`/member/${accountNumber}/community`)}
-            >
-              <MessageSquare className="h-4 w-4" /> কমিউনিটি
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => router.push(`/member/${accountNumber}/community`)}
-            >
-              <MessageSquare className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-destructive">
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-8">
+            <div className="flex items-center gap-1">
+               <Button variant="ghost" size="icon" className="text-gray-500" onClick={() => router.push(`/member/${accountNumber}/community`)}>
+                  <MessageSquare className="h-5 w-5" />
+               </Button>
+               {!isSubscribed && (
+                  <Button variant="ghost" size="icon" className="text-gray-500" onClick={handleSubscribe}>
+                     <Bell className="h-5 w-5" />
+                  </Button>
+               )}
 
-        {/* Member Card Preview */}
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" size="icon" className="text-gray-500">
+                        <MoreVertical className="h-5 w-5" />
+                     </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                     <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                        <LogOut className="h-4 w-4 mr-2" /> লগআউট
+                     </DropdownMenuItem>
+                  </DropdownMenuContent>
+               </DropdownMenu>
+            </div>
+         </div>
+      </div>
+
+      <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
+
+        {/* Member Card Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -794,48 +738,40 @@ export default function MemberDashboard() {
            <MemberCard member={{ name: member.name, accountNumber: member.accountNumber, balance: getTotalBalance() }} />
         </motion.div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="bg-gradient-to-br from-green-50 to-emerald-100 border-green-200 shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center mb-2">
-                   <DollarSign className="h-5 w-5 text-green-700" />
-                </div>
-                <div className="text-2xl font-bold text-green-800">৳{toBengaliNumber(getTotalBalance().toFixed(2))}</div>
-                <p className="text-xs font-medium text-green-700">সর্বমোট জমা</p>
+        {/* Quick Actions / Stats */}
+        <div className="grid grid-cols-2 gap-3">
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <DollarSign className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">বর্তমান স্থিতি</div>
+                 </div>
               </CardContent>
-            </Card>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="bg-gradient-to-br from-blue-50 to-indigo-100 border-blue-200 shadow-sm">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center mb-2">
-                   <Calendar className="h-5 w-5 text-blue-700" />
-                </div>
-                <div className="text-2xl font-bold text-blue-800">৳{toBengaliNumber(getCurrentYearContributions())}</div>
-                <p className="text-xs font-medium text-blue-700">চলতি বছর</p>
+           </Card>
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Calendar className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">চলতি বছর</div>
+                 </div>
               </CardContent>
-            </Card>
-          </motion.div>
+           </Card>
         </div>
 
-        {/* Info & History Tabs */}
-        <Tabs defaultValue="history" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="history">লেনদেন ইতিহাস</TabsTrigger>
-            <TabsTrigger value="profile">প্রোফাইল</TabsTrigger>
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="history" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100/80 rounded-xl mb-6">
+            <TabsTrigger value="history" className="rounded-lg text-xs font-medium">লেনদেন</TabsTrigger>
+            <TabsTrigger value="profile" className="rounded-lg text-xs font-medium">প্রোফাইল</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="history" className="space-y-4">
+          <TabsContent value="history" className="space-y-4 min-h-[300px]">
             <div className="flex justify-end">
               <Button size="sm" variant="outline" onClick={generatePDF} disabled={generatingPDF}>
                 <Download className="mr-2 h-4 w-4" />
@@ -919,9 +855,6 @@ export default function MemberDashboard() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleRegisterBiometric}>
-                     <ImageIcon className="h-4 w-4 mr-2" /> ফিঙ্গারপ্রিন্ট যুক্ত করুন
-                  </Button>
                   <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">

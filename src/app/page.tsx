@@ -9,12 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Handshake, ArrowRight, ShieldCheck, Lock, X, Fingerprint } from "lucide-react"
+import { Handshake, ArrowRight, ShieldCheck, Lock, X } from "lucide-react"
 import Link from "next/link"
 import { InstallPWA } from "@/components/install-pwa"
 import { Keypad } from "@/components/ui/keypad"
 import { toast } from "sonner"
-import { startAuthentication } from "@simplewebauthn/browser"
 
 export default function LoginPage() {
   const [adminUsername, setAdminUsername] = useState("")
@@ -28,7 +27,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [mounted, setMounted] = useState(false)
-  const [showBiometric, setShowBiometric] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -38,79 +36,7 @@ export default function LoginPage() {
       setMobileNumber(saved)
       setIsNumberSaved(true)
     }
-
-    // Simulating biometric availability
-    if (window.PublicKeyCredential) {
-       setShowBiometric(true)
-    }
   }, [])
-
-  const handleBiometricLogin = async () => {
-     if (!mobileNumber) {
-        toast.error("অনুগ্রহ করে প্রথমে আপনার মোবাইল নম্বর দিন")
-        return
-     }
-
-     setLoading(true)
-     try {
-        // 1. Get options
-        const savedAccount = localStorage.getItem("memberAccount")
-        if (!savedAccount) {
-           toast.error("বায়োমেট্রিক লগইনের জন্য অন্তত একবার সাধারণ লগইন প্রয়োজন")
-           setLoading(false)
-           return
-        }
-
-        const optionsResp = await fetch("/api/auth/webauthn/authenticate", {
-           method: "POST",
-           body: JSON.stringify({ action: "generate-options", accountNumber: savedAccount })
-        })
-
-        if (!optionsResp.ok) {
-           toast.error("ব্যবহারকারী খুঁজে পাওয়া যায়নি")
-           setLoading(false)
-           return
-        }
-
-        const options = await optionsResp.json()
-
-        // 2. Start Auth
-        let asseResp
-        try {
-           asseResp = await startAuthentication(options)
-        } catch (err) {
-           console.error(err)
-           toast.error("যাচাইকরণ ব্যর্থ হয়েছে")
-           setLoading(false)
-           return
-        }
-
-        // 3. Verify
-        const verifyResp = await fetch("/api/auth/webauthn/authenticate", {
-           method: "POST",
-           body: JSON.stringify({
-              action: "verify",
-              accountNumber: savedAccount,
-              authResponse: asseResp
-           })
-        })
-
-        const verification = await verifyResp.json()
-
-        if (verification.success) {
-           toast.success("লগইন সফল হয়েছে!")
-           router.push(`/member/${verification.member.accountNumber}`)
-        } else {
-           toast.error("যাচাইকরণ ব্যর্থ হয়েছে")
-        }
-
-     } catch (e) {
-        console.error(e)
-        toast.error("ত্রুটি হয়েছে")
-     } finally {
-        setLoading(false)
-     }
-  }
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -370,23 +296,9 @@ export default function LoginPage() {
                               className="my-4"
                            />
 
-                           <div className="flex gap-3">
-                              <Button type="submit" className="flex-1 h-12 text-base font-semibold" disabled={loading}>
-                                 {loading ? "যাচাই করা হচ্ছে..." : "লগইন"}
-                              </Button>
-
-                              {showBiometric && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  className="h-12 w-12 p-0 shrink-0"
-                                  onClick={handleBiometricLogin}
-                                  title="Biometric Login"
-                                >
-                                  <Fingerprint className="h-6 w-6 text-primary" />
-                                </Button>
-                              )}
-                           </div>
+                           <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={loading}>
+                              {loading ? "যাচাই করা হচ্ছে..." : "লগইন"}
+                           </Button>
                         </form>
                      </TabsContent>
                   </Tabs>

@@ -30,14 +30,24 @@ export function MemberCard({ member }: MemberCardProps) {
 
     try {
       const canvas = await html2canvas(cardRef.current, {
-        scale: 3, // High quality
+        scale: 3,
         backgroundColor: null,
-        useCORS: true
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+           // Ensure fonts and elements are ready
+           const clonedCard = clonedDoc.querySelector('[data-card-container]') as HTMLElement
+           if (clonedCard) {
+              clonedCard.style.transform = 'none'
+              clonedCard.style.boxShadow = 'none'
+           }
+        }
       })
 
-      // Convert to JPEG with 0.9 quality
       const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
 
+      // Attempt generic download first
       const a = document.createElement("a")
       a.href = dataUrl
       a.download = `fds-card-${member.accountNumber}.jpg`
@@ -47,7 +57,8 @@ export function MemberCard({ member }: MemberCardProps) {
 
       toast.success("কার্ড ডাউনলোড হয়েছে")
     } catch (err) {
-      toast.error("কার্ড শেয়ার করতে সমস্যা হয়েছে")
+      console.error(err)
+      toast.error("কার্ড ডাউনলোড করতে সমস্যা হয়েছে")
     }
   }
 
@@ -55,12 +66,17 @@ export function MemberCard({ member }: MemberCardProps) {
     <div className="w-full max-w-md mx-auto">
       <div
         ref={cardRef}
+        data-card-container="true"
         className="relative aspect-[1.586/1] w-full rounded-2xl p-6 text-white overflow-hidden shadow-2xl transition-transform hover:scale-[1.02]"
         style={{
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
-          border: "1px solid rgba(255,255,255,0.1)"
+          background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0))",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(255,255,255,0.18)",
+          boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.37)"
         }}
       >
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-600/30 to-blue-600/30 z-0"></div>
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
            <svg width="100%" height="100%">

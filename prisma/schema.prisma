@@ -51,20 +51,6 @@ model Member {
   votes         PollVote[]
   adjustments   AccountAdjustment[]
   subscriptions PushSubscription[]
-  authenticators Authenticator[]
-  webAuthnChallenge String?
-}
-
-model Authenticator {
-  id                   String   @id @default(cuid())
-  credentialID         String   @unique
-  credentialPublicKey  String
-  counter              BigInt
-  credentialDeviceType String
-  credentialBackedUp   Boolean
-  transports           String?
-  memberId             String
-  member               Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model Contribution {
