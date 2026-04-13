@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -10,9 +11,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { toast } from "sonner"
+import { Progress } from "@/components/ui/progress"
+
+interface FundAdjustment {
+  id: string
+  type: "CHARGE" | "INTEREST"
+  amount: number
+  date: string
+  description?: string
+}
+
+interface Adjustment {
+  id: string
+  memberId: string
+  type: "CHARGE" | "INTEREST"
+  amount: number
+  date: string
+  description?: string
+}
 
 interface Member {
   id: string
@@ -21,8 +45,20 @@ interface Member {
   phone?: string
   email?: string
   address?: string
+  dob?: string
+  nid?: string
+  fatherName?: string
+  motherName?: string
+  maritalStatus?: string
+  nomineeName?: string
+  nomineeNid?: string
+  nomineeRelation?: string
+  profileImage?: string
+  nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
+  isActive?: boolean
+  adjustments: Adjustment[]
 }
 
 interface Contribution {
@@ -35,12 +71,36 @@ interface Contribution {
   description?: string
 }
 
+interface Poll {
+  id: string
+  question: string
+  options: PollOption[]
+  isActive: boolean
+  createdAt: string
+  _count: {
+    votes: number
+  }
+}
+
+interface PollOption {
+  id: string
+  text: string
+  _count: {
+    votes: number
+  }
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
+  const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
+  const [polls, setPolls] = useState<Poll[]>([])
+  const [fundAdjustments, setFundAdjustments] = useState<FundAdjustment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
   const [showAddContribution, setShowAddContribution] = useState(false)
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const router = useRouter()
 
@@ -59,15 +119,42 @@ export default function AdminDashboard() {
     description: ""
   })
 
+  const [newPoll, setNewPoll] = useState({
+    question: "",
+    options: ["", ""]
+  })
+
+  const [adjustment, setAdjustment] = useState({
+      type: "",
+      amount: "",
+      description: "",
+      target: "all",
+      memberId: ""
+  })
+
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState<string>("all")
   const [generatingPDF, setGeneratingPDF] = useState<string | null>(null)
-  const printRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     checkAuth()
     fetchMembers()
+    fetchPolls()
+    fetchFundAdjustments()
   }, [])
+
+  useEffect(() => {
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase()
+      setFilteredMembers(members.filter(m =>
+        m.name.toLowerCase().includes(lowerQuery) ||
+        m.accountNumber.includes(lowerQuery) ||
+        m.phone?.includes(lowerQuery)
+      ))
+    } else {
+      setFilteredMembers(members)
+    }
+  }, [searchQuery, members])
 
   const checkAuth = () => {
     const token = localStorage.getItem("adminToken")
@@ -88,6 +175,7 @@ export default function AdminDashboard() {
       if (response.ok) {
         const data = await response.json()
         setMembers(data)
+        setFilteredMembers(data)
       } else {
         setError("Failed to fetch members")
       }
@@ -95,6 +183,29 @@ export default function AdminDashboard() {
       setError("Network error occurred")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPolls = async () => {
+    try {
+      const response = await fetch("/api/admin/polls")
+      if (response.ok) {
+        const data = await response.json()
+        setPolls(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch polls")
+    }
+  }
+
+  const fetchFundAdjustments = async () => {
+    try {
+        const response = await fetch("/api/admin/adjustments")
+        if (response.ok) {
+            setFundAdjustments(await response.json())
+        }
+    } catch (e) {
+        console.error("Failed to fetch fund adjustments")
     }
   }
 
@@ -121,6 +232,30 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError("Network error occurred")
+    }
+  }
+
+
+  const handleToggleMemberStatus = async (memberId: string, currentStatus: boolean) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/admin/members/${memberId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive: !currentStatus })
+      })
+
+      if (response.ok) {
+        toast.success(currentStatus ? "সদস্যপদ স্থগিত করা হয়েছে" : "সদস্যপদ সক্রিয় করা হয়েছে")
+        fetchMembers()
+      } else {
+        toast.error("স্ট্যাটাস পরিবর্তন করতে ব্যর্থ")
+      }
+    } catch (err) {
+      toast.error("Network error occurred")
     }
   }
 
@@ -159,35 +294,86 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleCreatePoll = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const response = await fetch("/api/admin/polls", {
+        method: "POST",
+        body: JSON.stringify(newPoll)
+      })
+
+      if (response.ok) {
+        setShowCreatePoll(false)
+        setNewPoll({ question: "", options: ["", ""] })
+        toast.success("পোল তৈরি করা হয়েছে")
+        fetchPolls()
+      } else {
+        toast.error("পোল তৈরি করতে ব্যর্থ")
+      }
+    } catch (e) {
+      toast.error("নেটওয়ার্ক ত্রুটি")
+    }
+  }
+
+  const handleEndPoll = async (pollId: string) => {
+    try {
+      const response = await fetch("/api/admin/polls", {
+        method: "PATCH",
+        body: JSON.stringify({ id: pollId, isActive: false })
+      })
+
+      if (response.ok) {
+        toast.success("পোল বন্ধ করা হয়েছে")
+        fetchPolls()
+      } else {
+        toast.error("পোল বন্ধ করতে ব্যর্থ")
+      }
+    } catch (e) {
+      toast.error("নেটওয়ার্ক ত্রুটি")
+    }
+  }
+
+  const handleFinancialAdjustment = async (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!adjustment.type || !adjustment.amount) {
+          toast.error("অনুগ্রহ করে তথ্য পূরণ করুন")
+          return
+      }
+
+      try {
+          const res = await fetch("/api/admin/adjustments", {
+              method: "POST",
+              body: JSON.stringify(adjustment)
+          })
+          if (res.ok) {
+              toast.success("সফলভাবে সম্পন্ন হয়েছে")
+              setAdjustment({ type: "", amount: "", description: "", target: "all", memberId: "" })
+              fetchFundAdjustments()
+              if (adjustment.target !== 'all') fetchMembers()
+          } else {
+              toast.error("ব্যর্থ হয়েছে")
+          }
+      } catch (e) {
+          toast.error("ত্রুটি হয়েছে")
+      }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem("adminToken")
     router.push("/")
   }
 
-  const generateAccountNumber = () => {
-    const lastMember = members.reduce((prev, current) => 
-      parseInt(prev.accountNumber) > parseInt(current.accountNumber) ? prev : current
-    , members[0])
-    
-    const lastNumber = lastMember ? parseInt(lastMember.accountNumber) : 0
-    return String(lastNumber + 1).padStart(4, '0')
+  const toBengaliNumber = (num: number | string) => {
+    if (num === undefined || num === null) return "০"
+    const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    return num.toString().replace(/\d/g, (d) => bengaliDigits[parseInt(d)]);
   }
 
-  // Helper functions for payment tracking
   const getMonthName = (month: string) => {
     const months: { [key: string]: string } = {
-      "01": "জানুয়ারি",
-      "02": "ফেব্রুয়ারি", 
-      "03": "মার্চ",
-      "04": "এপ্রিল",
-      "05": "মে",
-      "06": "জুন",
-      "07": "জুলাই",
-      "08": "আগস্ট",
-      "09": "সেপ্টেম্বর",
-      "10": "অক্টোবর",
-      "11": "নভেম্বর",
-      "12": "ডিসেম্বর"
+      "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
+      "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
+      "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
     }
     return months[month] || month
   }
@@ -207,7 +393,6 @@ export default function AdminDashboard() {
         key: `${currentYear}-${monthStr}`
       })
     }
-    
     return months
   }
 
@@ -228,125 +413,100 @@ export default function AdminDashboard() {
           totalAmount += payment.amount
         }
       })
-      
-      if (hasPaidForSelectedPeriod) {
-        paidMembers++
-      } else {
-        unpaidMembers++
-      }
+      if (hasPaidForSelectedPeriod) paidMembers++
+      else unpaidMembers++
     })
 
     return { paidMembers, unpaidMembers, totalAmount }
   }
 
-  const getRecentContributions = () => {
-    const allContributions = members.flatMap(member => 
-      member.contributions.map(contribution => ({
-        ...contribution,
-        memberName: member.name,
-        accountNumber: member.accountNumber
-      }))
-    )
-    
-    return allContributions
-      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-      .slice(0, 10)
-  }
+  const getTotalFund = () => {
+    const contributions = members.reduce((sum, member) => {
+      return sum + member.contributions.reduce((mSum, c) => mSum + c.amount, 0);
+    }, 0);
 
-  const getMonthlyPaymentStatus = () => {
-    const currentYear = new Date().getFullYear()
-    const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
-    
-    return months.map(month => {
-      const paidCount = members.filter(member => 
-        member.contributions.some(c => c.month === month && c.year === currentYear)
-      ).length
-      
-      const unpaidCount = members.length - paidCount
-      
-      const totalAmount = members
-        .filter(member => 
-          member.contributions.some(c => c.month === month && c.year === currentYear)
-        )
-        .reduce((sum, member) => {
-          const contribution = member.contributions.find(c => c.month === month && c.year === currentYear)
-          return sum + (contribution?.amount || 0)
+    const globalAdjustments = fundAdjustments.reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+    }, 0);
+
+    const personalAdjustments = members.reduce((sum, member) => {
+        return sum + (member.adjustments || []).reduce((mSum, adj) => {
+             return adj.type === 'INTEREST' ? mSum + adj.amount : mSum - adj.amount
         }, 0)
+    }, 0);
 
-      return {
-        month,
-        monthName: getMonthName(month),
-        year: currentYear,
-        paidCount,
-        unpaidCount,
-        totalAmount
-      }
-    }).reverse()
+    return contributions + globalAdjustments + personalAdjustments;
   }
 
-  const getMembersWithPaymentIssues = () => {
-    const currentDate = new Date()
-    const currentMonth = String(currentDate.getMonth() + 1).padStart(2, '0')
-    const currentYear = currentDate.getFullYear()
-    
-    return members.filter(member => {
-      // Check if member has contributions for the last 2 months
-      const twoMonthsAgo = new Date(currentDate)
-      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
-      
-      const requiredMonths = []
-      for (let i = 0; i < 2; i++) {
-        const checkDate = new Date(currentDate)
-        checkDate.setMonth(checkDate.getMonth() - i)
-        requiredMonths.push({
-          month: String(checkDate.getMonth() + 1).padStart(2, '0'),
-          year: checkDate.getFullYear()
+  const getMonthlyData = () => {
+    const data: { name: string; total: number }[] = []
+    const today = new Date()
+
+    // Generate last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0')
+      const year = d.getFullYear()
+      const name = `${getMonthName(monthStr)} ${toBengaliNumber(year)}`
+
+      let total = 0
+      members.forEach(member => {
+        member.contributions.forEach(c => {
+          if (c.month === monthStr && c.year === year) {
+            total += c.amount
+          }
         })
-      }
-      
-      const overdueMonths = requiredMonths.filter(({ month, year }) => 
-        !member.contributions.some(c => c.month === month && c.year === year)
-      )
-      
-      return overdueMonths.length > 0
-    }).map(member => {
-      const currentDate = new Date()
-      const requiredMonths = []
-      for (let i = 0; i < 2; i++) {
-        const checkDate = new Date(currentDate)
-        checkDate.setMonth(checkDate.getMonth() - i)
-        requiredMonths.push({
-          month: String(checkDate.getMonth() + 1).padStart(2, '0'),
-          year: checkDate.getFullYear()
-        })
-      }
-      
-      const overdueMonths = requiredMonths.filter(({ month, year }) => 
-        !member.contributions.some(c => c.month === month && c.year === year)
-      )
-      
-      return {
-        ...member,
-        overdueMonths: overdueMonths.length
-      }
+      })
+
+      data.push({ name, total })
+    }
+    return data
+  }
+
+  const getCurrentMonthPaymentData = () => {
+    const today = new Date()
+    const currentMonth = String(today.getMonth() + 1).padStart(2, '0')
+    const currentYear = today.getFullYear()
+
+    let paid = 0
+    let unpaid = 0
+
+    members.forEach(member => {
+       const hasPaid = member.contributions.some(c => c.month === currentMonth && c.year === currentYear)
+       if (hasPaid) paid++
+       else unpaid++
     })
+
+    return [
+      { name: 'পরিশোধিত', value: paid },
+      { name: 'বকেয়া', value: unpaid }
+    ]
   }
+
+  const PIE_COLORS = ['#16a34a', '#dc2626'];
 
   const generateMemberPDF = async (member: Member) => {
     setGeneratingPDF(member.id)
     try {
-      // Create print-friendly HTML content
       const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Unable to open print window')
-      }
+      if (!printWindow) throw new Error('Unable to open print window')
 
       const totalContributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
-      const currentYearContributions = member.contributions
-        .filter(c => c.year === new Date().getFullYear())
-        .reduce((sum, c) => sum + c.amount, 0)
 
-      // Create the HTML document with proper styling for Bengali support
+      // Calculate Personal Adjustments
+      const personalAdjSum = (member.adjustments || []).reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+
+      // Calculate Share of Global Adjustments
+      // Note: This matches the Member Dashboard logic
+      const globalAdjSum = fundAdjustments.reduce((sum, adj) => {
+        return adj.type === 'INTEREST' ? sum + adj.amount : sum - adj.amount
+      }, 0)
+      const share = members.length > 0 ? globalAdjSum / members.length : 0
+
+      const totalBalance = totalContributions + personalAdjSum + share
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -355,754 +515,1089 @@ export default function AdminDashboard() {
           <title>হিসাব স্টেটমেন্ট - ${member.name}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
             body {
               font-family: 'Noto Sans Bengali', sans-serif;
-              line-height: 1.6;
-              color: #333;
-              padding: 20px;
-              background: #fff;
+              padding: 0;
+              margin: 0;
+              background-color: #f0f2f5;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
-            
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #333;
-              padding-bottom: 20px;
+            .page {
+              background: white;
+              width: 210mm;
+              min-height: 297mm;
+              margin: 20px auto;
+              padding: 40px;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              position: relative;
+              box-sizing: border-box;
+              border: 10px solid transparent;
+              border-image: linear-gradient(to right, #16a34a, #15803d) 1;
             }
-            
-            .header h1 {
+            .watermark {
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 120px;
+              color: rgba(22, 163, 74, 0.08);
+              font-weight: 800;
+              pointer-events: none;
+              white-space: nowrap;
+              z-index: 0;
+              border: 5px solid rgba(22, 163, 74, 0.1);
+              padding: 20px 50px;
+              border-radius: 20px;
+            }
+            @media print {
+              body { background: none; margin: 0; }
+              .page { margin: 0; width: 100%; box-shadow: none; border-width: 5px; }
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #16a34a 0%, #047857 100%);
+              color: white;
+              padding: 35px;
+              border-radius: 4px;
+              margin-bottom: 40px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              position: relative;
+              z-index: 1;
+              box-shadow: 0 4px 15px rgba(22, 163, 74, 0.2);
+            }
+            .brand h1 {
+              margin: 0;
+              font-size: 32px;
+              font-weight: 800;
+              letter-spacing: -0.5px;
+              text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            }
+            .brand p {
+              margin: 5px 0 0;
+              font-size: 14px;
+              opacity: 0.95;
+            }
+            .statement-title {
+              text-align: right;
+            }
+            .statement-title h2 {
+              margin: 0;
               font-size: 24px;
               font-weight: 700;
-              margin-bottom: 10px;
-              color: #1f2937;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              opacity: 1;
+              text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
             }
-            
-            .header h2 {
-              font-size: 18px;
+            .statement-title p {
+              margin: 5px 0 0;
+              font-size: 12px;
               font-weight: 600;
-              color: #4b5563;
+              color: rgba(255, 255, 255, 0.95);
             }
-            
-            .section {
-              margin-bottom: 25px;
+            .content {
+              position: relative;
+              z-index: 1;
             }
-            
-            .section-title {
-              font-size: 16px;
-              font-weight: 600;
-              margin-bottom: 15px;
-              color: #1f2937;
-              border-bottom: 1px solid #e5e7eb;
-              padding-bottom: 5px;
-            }
-            
             .info-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin-bottom: 25px;
+              grid-template-columns: 1.5fr 1fr;
+              gap: 50px;
+              margin-bottom: 40px;
             }
-            
-            .info-item {
-              margin-bottom: 8px;
+            .info-box {
+              padding: 20px;
+              background: #fcfcfc;
+              border-radius: 8px;
+              border-left: 4px solid #16a34a;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.02);
             }
-            
-            .info-label {
+            .info-box h3 {
+              font-size: 12px;
+              text-transform: uppercase;
+              color: #16a34a;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 6px;
+              margin-bottom: 10px;
+              letter-spacing: 1px;
+              font-weight: 700;
+            }
+            .info-row {
+              display: flex;
+              margin-bottom: 4px;
+              font-size: 11px;
+              color: #334155;
+            }
+            .info-row span:first-child {
+              width: 100px;
+              color: #64748b;
               font-weight: 600;
-              color: #4b5563;
             }
-            
-            .table-container {
-              overflow-x: auto;
-              margin: 20px 0;
+            .info-row strong {
+              color: #0f172a;
+              font-weight: 700;
             }
-            
             table {
               width: 100%;
-              border-collapse: collapse;
-              margin: 15px 0;
+              border-collapse: separate;
+              border-spacing: 0;
+              font-size: 11px;
+              margin-bottom: 20px;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              overflow: hidden;
             }
-            
-            th, td {
-              border: 1px solid #d1d5db;
-              padding: 8px 12px;
-              text-align: left;
-              font-size: 14px;
-            }
-            
             th {
-              background-color: #f3f4f6;
+              background-color: #16a34a;
+              color: white;
               font-weight: 600;
-              color: #1f2937;
+              text-align: left;
+              padding: 8px 10px;
+              text-transform: uppercase;
+              font-size: 11px;
+              letter-spacing: 0.5px;
             }
-            
+            td {
+              padding: 6px 10px;
+              border-bottom: 1px solid #e2e8f0;
+              color: #334155;
+            }
+            tr:last-child td {
+              border-bottom: none;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            tr:hover {
+              background-color: #f0fdf4;
+            }
             .amount {
               text-align: right;
-              font-weight: 500;
+              font-family: monospace;
+              font-size: 11px;
+              font-weight: 700;
             }
-            
-            .footer {
-              text-align: center;
-              margin-top: 40px;
-              padding-top: 20px;
-              border-top: 1px solid #e5e7eb;
+            .summary-box {
+              background: #f0fdf4;
+              border: 2px solid #16a34a;
+              border-radius: 12px;
+              padding: 15px;
+              margin-top: 20px;
+              break-inside: avoid;
+              box-shadow: 0 4px 10px rgba(22, 163, 74, 0.05);
+            }
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
               font-size: 12px;
-              color: #6b7280;
+              color: #334155;
             }
-            
-            .special-note {
-              background-color: #fef3c7;
-              border: 1px solid #f59e0b;
-              padding: 15px;
-              margin: 20px 0;
-              border-radius: 5px;
-              color: #92400e;
+            .summary-row.total {
+              border-top: 2px dashed #16a34a;
+              margin-top: 15px;
+              padding-top: 15px;
+              font-weight: 800;
+              font-size: 20px;
+              color: #16a34a;
             }
-            
-            .special-note strong {
-              color: #78350f;
+            .footer {
+              margin-top: 60px;
+              text-align: center;
+              font-size: 12px;
+              color: #64748b;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 30px;
             }
-            
-            .admin-note {
-              background-color: #dbeafe;
-              border: 1px solid #3b82f6;
-              padding: 15px;
-              margin: 20px 0;
-              border-radius: 5px;
-              color: #1e40af;
-            }
-            
-            .admin-note strong {
-              color: #1e3a8a;
-            }
-            
-            @media print {
-              body {
-                padding: 0;
-                margin: 0;
-              }
-              
-              .no-print {
-                display: none;
-              }
-            }
-            
-            @page {
-              margin: 1cm;
+            .footer p:last-child {
+              font-weight: 600;
+              color: #16a34a;
+              margin-top: 5px;
             }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>Friends Development Society (FDS)</h1>
-            <h2>হিসাব স্টেটমেন্ট / Account Statement</h2>
-          </div>
-          
-          <div class="info-grid">
-            <div class="section">
-              <div class="section-title">সদস্যের তথ্য / Member Information</div>
-              <div class="info-item">
-                <span class="info-label">একাউন্ট নম্বর:</span> ${member.accountNumber}
+          <div class="page">
+            <div class="watermark">FDS OFFICIAL</div>
+
+            <div class="header-banner">
+              <div class="brand">
+                <h1>Friends Development Society</h1>
+                <p>বন্ধুত্ব ও সহযোগিতার এক অনন্য বন্ধন</p>
               </div>
-              <div class="info-item">
-                <span class="info-label">নাম:</span> ${member.name}
-              </div>
-              <div class="info-item">
-                <span class="info-label">ফোন:</span> ${member.phone || 'N/A'}
-              </div>
-              <div class="info-item">
-                <span class="info-label">ইমেইল:</span> ${member.email || 'N/A'}
-              </div>
-              <div class="info-item">
-                <span class="info-label">যোগদানের তারিখ:</span> ${new Date(member.createdAt).toLocaleDateString('bn-BD')}
+              <div class="statement-title">
+                <h2>হিসাব বিবরণী</h2>
+                <p>প্রিন্ট: ${new Date().toLocaleString('bn-BD')}</p>
               </div>
             </div>
-            
-            <div class="section">
-              <div class="section-title">হিসাব সারাংশ / Account Summary</div>
-              <div class="info-item">
-                <span class="info-label">মোট চাঁদা:</span> ৳${totalContributions.toFixed(2)}
+
+            <div class="content">
+              <div class="info-grid">
+                <div class="info-box">
+                  <h3>সদস্যের তথ্য</h3>
+                  <div class="info-row">
+                    <span>নাম:</span>
+                    <strong>${member.name}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>একাউন্ট নম্বর:</span>
+                    <strong>${toBengaliNumber(member.accountNumber)}</strong>
+                  </div>
+                  <div class="info-row">
+                    <span>মোবাইল:</span>
+                    <span>${toBengaliNumber(member.phone || 'N/A')}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>ঠিকানা:</span>
+                    <span>${member.address || 'N/A'}</span>
+                  </div>
+                </div>
+                <div class="info-box">
+                  <h3>সারসংক্ষেপ</h3>
+                  <div class="info-row">
+                    <span>মোট জমা:</span>
+                    <span class="amount" style="color: #16a34a">৳${toBengaliNumber(totalContributions)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span>মুনাফা/চার্জ:</span>
+                    <span class="amount" style="color: ${personalAdjSum + share >= 0 ? '#16a34a' : '#dc2626'}">
+                      ৳${toBengaliNumber((personalAdjSum + share).toFixed(2))}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div class="info-item">
-                <span class="info-label">চলতি বছরের চাঁদা:</span> ৳${currentYearContributions.toFixed(2)}
-              </div>
-              <div class="info-item">
-                <span class="info-label">মোট পেমেন্ট:</span> ${member.contributions.length} টি
-              </div>
-              <div class="info-item">
-                <span class="info-label">স্টেটমেন্ট তারিখ:</span> ${new Date().toLocaleDateString('bn-BD')}
-              </div>
+
+          <div class="table-container">
+            <h3>সাম্প্রতিক লেনদেন</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>তারিখ</th>
+                  <th>বিবরণ</th>
+                  <th>মাস ও বছর</th>
+                  <th style="text-align: right">পরিমাণ</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${member.contributions.map(c => `
+                  <tr>
+                    <td>${new Date(c.paymentDate).toLocaleDateString('bn-BD')}</td>
+                    <td>মাসিক চাঁদা</td>
+                    <td>${getMonthName(c.month)} ${toBengaliNumber(c.year)}</td>
+                    <td class="amount">৳${toBengaliNumber(c.amount)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row">
+              <span>মোট চাঁদা</span>
+              <span class="amount">৳${toBengaliNumber(totalContributions)}</span>
+            </div>
+            <div class="summary-row">
+              <span>ব্যক্তিগত মুনাফা/চার্জ</span>
+              <span class="amount" style="color: ${personalAdjSum >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(personalAdjSum.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row">
+              <span>গ্লোবাল মুনাফা/চার্জ (শেয়ার)</span>
+              <span class="amount" style="color: ${share >= 0 ? 'inherit' : '#dc2626'}">
+                ৳${toBengaliNumber(share.toFixed(2))}
+              </span>
+            </div>
+            <div class="summary-row total">
+              <span>সর্বমোট স্থিতি</span>
+              <span class="amount">৳${toBengaliNumber(totalBalance.toFixed(2))}</span>
             </div>
           </div>
-          
-          <div class="section">
-            <div class="section-title">চাঁদার ইতিহাস / Contribution History</div>
-            ${member.contributions.length > 0 ? `
-              <div class="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>মাস</th>
-                      <th>বছর</th>
-                      <th class="amount">পরিমাণ</th>
-                      <th>জমা দেওয়ার তারিখ</th>
-                      <th>বিবরণ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${member.contributions
-                      .sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())
-                      .map(contribution => `
-                        <tr>
-                          <td>${getMonthName(contribution.month)}</td>
-                          <td>${contribution.year}</td>
-                          <td class="amount">৳${contribution.amount.toFixed(2)}</td>
-                          <td>${new Date(contribution.paymentDate).toLocaleDateString('bn-BD')}</td>
-                          <td>${contribution.description || '-'}</td>
-                        </tr>
-                      `).join('')}
-                  </tbody>
-                </table>
-              </div>
-            ` : '<p style="text-align: center; color: #6b7280; padding: 20px;">এখনো কোন চাঁদা জমা দেওয়া হয়নি</p>'}
-          </div>
-          
-          ${member.address ? `
-            <div class="section">
-              <div class="section-title">ঠিকানা / Address</div>
-              <p style="background-color: #f9fafb; padding: 15px; border: 1px solid #e5e7eb; border-radius: 5px;">${member.address.replace(/\n/g, '<br>')}</p>
-            </div>
-          ` : ''}
-          
-          ${member.contributions.length === 0 ? `
-            <div class="special-note">
-              <strong>বিশেষ নোট:</strong> এই সদস্যটি এখনো কোনো চাঁদা জমা দেয়নি। অনুগ্রহ করে নিয়মিত চাঁদা জমা দেওয়ার জন্য অনুরোধ করা হলো।
-            </div>
-          ` : ''}
-          
-          <div class="admin-note">
-            <strong>অ্যাডমিন নোট:</strong> এই স্টেটমেন্টটি অ্যাডমিন দ্বারা জেনারেট করা হয়েছে।
-          </div>
-          
+
           <div class="footer">
-            <p>Friends Development Society (FDS) - স্বচ্ছতা ও জবাবদিহিতার প্রতিশ্রুতি</p>
-            <p>Generated by Admin on: ${new Date().toLocaleString('bn-BD')}</p>
+            <p>এই স্টেটমেন্টটি কম্পিউটার দ্বারা প্রস্তুতকৃত এবং এর জন্য কোনো স্বাক্ষরের প্রয়োজন নেই।</p>
+            <p>© ${new Date().getFullYear()} Friends Development Society (FDS)</p>
           </div>
-          
-          <div class="no-print" style="text-align: center; margin-top: 20px;">
-            <p style="color: #6b7280; font-size: 14px;">দয়া করে Print বা Save as PDF বাটন ব্যবহার করুন</p>
-            <p style="color: #6b7280; font-size: 12px;">Please use Print or Save as PDF button</p>
           </div>
+          </div>
+
+          <script>window.print();</script>
         </body>
         </html>
       `
-
       printWindow.document.write(htmlContent)
       printWindow.document.close()
-      
-      // Wait for the content to load, then trigger print
-      printWindow.onload = () => {
-        printWindow.print()
-      }
-      
     } catch (error) {
-      console.error('PDF generation failed:', error)
-      setError('PDF তৈরি করতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।')
+      console.error(error)
+      setError('PDF generation failed')
     } finally {
       setGeneratingPDF(null)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
-  }
+  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20 md:pb-8">
+      {/* Mobile Header */}
+      <div className="md:hidden flex items-center justify-between p-4 border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 shadow-sm">
+        <div className="font-bold text-lg">অ্যাডমিন প্যানেল</div>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon"><Menu /></Button>
+          </SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>মেনু</SheetTitle>
+            </SheetHeader>
+            <div className="flex flex-col gap-4 mt-8">
+              <Button onClick={() => setShowAddMember(true)} variant="outline" className="justify-start">
+                <UserPlus className="mr-2 h-4 w-4" /> নতুন সদস্য
+              </Button>
+              <Button onClick={() => setShowAddContribution(true)} variant="outline" className="justify-start">
+                <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
+              </Button>
+              <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="justify-start">
+                <BarChart2 className="mr-2 h-4 w-4" /> নতুন পোল
+              </Button>
+              <Button onClick={handleLogout} variant="destructive" className="justify-start">
+                <LogOut className="mr-2 h-4 w-4" /> লগআউট
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
+        {/* Desktop Header */}
+        <div className="hidden md:flex justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">হিসাবরক্ষক ড্যাশবোর্ড</h1>
-            <p className="text-gray-600">Admin Dashboard</p>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">অ্যাডমিন ড্যাশবোর্ড</h1>
+            <p className="text-gray-500">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
           </div>
           <div className="flex gap-4">
-            <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
-              <DialogTrigger asChild>
-                <Button>নতুন সদস্য যোগ করুন</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>নতুন সদস্য যোগ করুন</DialogTitle>
-                  <DialogDescription>
-                    নতুন সদস্যের তথ্য পূরণ করুন
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleAddMember} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">নাম</Label>
-                    <Input
-                      id="name"
-                      value={newMember.name}
-                      onChange={(e) => setNewMember({...newMember, name: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">ফোন নম্বর</Label>
-                    <Input
-                      id="phone"
-                      value={newMember.phone}
-                      onChange={(e) => setNewMember({...newMember, phone: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">ইমেইল</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={newMember.email}
-                      onChange={(e) => setNewMember({...newMember, email: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="address">ঠিকানা</Label>
-                    <Textarea
-                      id="address"
-                      value={newMember.address}
-                      onChange={(e) => setNewMember({...newMember, address: e.target.value})}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit">সদস্য যোগ করুন</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowAddMember(false)}>
-                      বাতিল
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <Dialog open={showAddContribution} onOpenChange={setShowAddContribution}>
-              <DialogTrigger asChild>
-                <Button variant="outline">চাঁদা যোগ করুন</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>চাঁদা যোগ করুন</DialogTitle>
-                  <DialogDescription>
-                    সদস্যের মাসিক চাঁদা যোগ করুন
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleAddContribution} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="memberId">সদস্য</Label>
-                    <Select 
-                      value={newContribution.memberId} 
-                      onValueChange={(value) => setNewContribution({...newContribution, memberId: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="সদস্য নির্বাচন করুন" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {members.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name} ({member.accountNumber})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="month">মাস</Label>
-                      <Select 
-                        value={newContribution.month} 
-                        onValueChange={(value) => setNewContribution({...newContribution, month: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="মাস নির্বাচন করুন" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="01">জানুয়ারি</SelectItem>
-                          <SelectItem value="02">ফেব্রুয়ারি</SelectItem>
-                          <SelectItem value="03">মার্চ</SelectItem>
-                          <SelectItem value="04">এপ্রিল</SelectItem>
-                          <SelectItem value="05">মে</SelectItem>
-                          <SelectItem value="06">জুন</SelectItem>
-                          <SelectItem value="07">জুলাই</SelectItem>
-                          <SelectItem value="08">আগস্ট</SelectItem>
-                          <SelectItem value="09">সেপ্টেম্বর</SelectItem>
-                          <SelectItem value="10">অক্টোবর</SelectItem>
-                          <SelectItem value="11">নভেম্বর</SelectItem>
-                          <SelectItem value="12">ডিসেম্বর</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="year">বছর</Label>
-                      <Input
-                        id="year"
-                        type="number"
-                        value={newContribution.year}
-                        onChange={(e) => setNewContribution({...newContribution, year: parseInt(e.target.value)})}
-                        min="2020"
-                        max="2030"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">পরিমাণ</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      value={newContribution.amount}
-                      onChange={(e) => setNewContribution({...newContribution, amount: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">বিবরণ</Label>
-                    <Textarea
-                      id="description"
-                      value={newContribution.description}
-                      onChange={(e) => setNewContribution({...newContribution, description: e.target.value})}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit">চাঁদা যোগ করুন</Button>
-                    <Button type="button" variant="outline" onClick={() => setShowAddContribution(false)}>
-                      বাতিল
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <Button variant="outline" onClick={handleLogout}>
-              লগআউট
+            <Button onClick={() => setShowAddMember(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm hover:shadow transition-all">
+              <UserPlus className="mr-2 h-4 w-4" /> সদস্য যোগ
+            </Button>
+            <Button onClick={() => setShowAddContribution(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm hover:shadow transition-all">
+              <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
+            </Button>
+            <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50">
+              <BarChart2 className="mr-2 h-4 w-4" /> নতুন পোল
+            </Button>
+            <Button onClick={handleLogout} variant="destructive">
+              <LogOut className="mr-2 h-4 w-4" /> লগআউট
             </Button>
           </div>
         </div>
 
         {error && (
-          <Alert className="mb-4" variant="destructive">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        <Tabs defaultValue="members" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="members">সদস্য তালিকা</TabsTrigger>
-            <TabsTrigger value="payments">চাঁদার হিসাব</TabsTrigger>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-blue-500 to-blue-600 text-white group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <CardTitle className="text-sm font-medium text-blue-50/90 z-10 relative">মোট সদস্য</CardTitle>
+              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Users className="h-5 w-5 text-white" /></div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(members.length)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Users className="h-24 w-24" /></div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-emerald-500 to-emerald-600 text-white group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-emerald-50/90 z-10 relative">মোট তহবিল</CardTitle>
+              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Wallet className="h-5 w-5 text-white" /></div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Wallet className="h-24 w-24" /></div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-purple-500 to-purple-600 text-white group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-purple-50/90 z-10 relative">জমা (চলতি মাস)</CardTitle>
+              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><TrendingUp className="h-5 w-5 text-white" /></div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><TrendingUp className="h-24 w-24" /></div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-rose-500 to-rose-600 text-white group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-rose-50/90 z-10 relative">বকেয়া সদস্য</CardTitle>
+              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><AlertCircle className="h-5 w-5 text-white" /></div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><AlertCircle className="h-24 w-24" /></div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+        </div>
+
+        <Tabs defaultValue="members" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px] p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl">
+            <TabsTrigger value="members">সদস্য</TabsTrigger>
+            <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
+            <TabsTrigger value="polls">পোলস</TabsTrigger>
+            <TabsTrigger value="financials">অর্থ</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="members">
-            <Card>
-              <CardHeader>
-                <CardTitle>সদস্যদের তালিকা</CardTitle>
-                <CardDescription>
-                  মোট সদস্য: {members.length} | পরবর্তী একাউন্ট নম্বর: {generateAccountNumber()}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>একাউন্ট নম্বর</TableHead>
-                        <TableHead>নাম</TableHead>
-                        <TableHead>ফোন</TableHead>
-                        <TableHead>ইমেইল</TableHead>
-                        <TableHead>মোট চাঁদা</TableHead>
-                        <TableHead>যোগদানের তারিখ</TableHead>
-                        <TableHead>একশন</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {members.map((member) => {
-                        const totalContributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
-                        return (
-                          <TableRow key={member.id}>
-                            <TableCell className="font-medium">{member.accountNumber}</TableCell>
-                            <TableCell>{member.name}</TableCell>
-                            <TableCell>{member.phone || "-"}</TableCell>
-                            <TableCell>{member.email || "-"}</TableCell>
-                            <TableCell>৳{totalContributions.toFixed(2)}</TableCell>
-                            <TableCell>{new Date(member.createdAt).toLocaleDateString("bn-BD")}</TableCell>
-                            <TableCell>
-                              <Button 
-                                size="sm" 
-                                onClick={() => generateMemberPDF(member)}
-                                disabled={generatingPDF === member.id}
-                                className="bg-blue-600 hover:bg-blue-700"
-                              >
-                                {generatingPDF === member.id ? "তৈরি হচ্ছে..." : "PDF"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="members" className="space-y-4">
+             <div className="flex items-center gap-2 mb-4">
+                <Search className="text-muted-foreground w-4 h-4" />
+                <Input
+                   placeholder="নাম বা একাউন্ট নম্বর দিয়ে খুঁজুন..."
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="max-w-sm"
+                />
+             </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence>
+                {filteredMembers.map((member) => (
+                  <motion.div
+                    key={member.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Card className="hover:shadow-xl transition-all duration-300 border-slate-200/60 hover:border-blue-200 bg-white/80 backdrop-blur-sm group">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div className="flex items-center gap-3">
+                           <Avatar className="h-10 w-10">
+                              <AvatarImage src={member.profileImage} alt={member.name} />
+                              <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                           </Avatar>
+                           <div>
+                              <CardTitle className="text-sm font-medium">
+                                 {member.name}
+                              </CardTitle>
+                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] py-0">{toBengaliNumber(member.accountNumber)}</Badge>
+                           </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                          <p>{toBengaliNumber(member.phone || "ফোন নম্বর নেই")}</p>
+                          <p>যোগদান: {new Date(member.createdAt).toLocaleDateString('bn-BD')}</p>
+                          <div className="pt-2 flex justify-between items-center">
+                             <span className="font-bold text-primary">
+                                ৳{toBengaliNumber(member.contributions.reduce((s, c) => s + c.amount, 0))}
+                             </span>
+                             <div className="flex gap-1">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => setSelectedMember(member)}
+                                >
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => generateMemberPDF(member)}
+                                    disabled={generatingPDF === member.id}
+                                >
+                                    <FileText className="h-4 w-4" />
+                                </Button>
+                             </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
           </TabsContent>
 
           <TabsContent value="payments">
             <Card>
               <CardHeader>
-                <CardTitle>মাসিক চাঁদার হিসাব</CardTitle>
-                <CardDescription>
-                  কোন সদস্য কোন মাসের চাঁদা দিয়েছেন তার বিস্তারিত হিসাব
-                </CardDescription>
+                <CardTitle>পেমেন্ট ম্যাট্রিক্স</CardTitle>
+                <div className="flex flex-wrap gap-2 mt-2">
+                   <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
+                      <SelectTrigger className="w-[100px]">
+                         <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                         {[2023, 2024, 2025, 2026].map(y => <SelectItem key={y} value={y.toString()}>{toBengaliNumber(y)}</SelectItem>)}
+                      </SelectContent>
+                   </Select>
+                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="w-[120px]">
+                         <SelectValue placeholder="মাস" />
+                      </SelectTrigger>
+                      <SelectContent>
+                         <SelectItem value="all">সব মাস</SelectItem>
+                         {Object.entries({
+                            "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
+                            "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
+                            "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
+                         }).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                     </SelectContent>
+                  </Select>
+               </div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Year and Month Filter */}
-                  <div className="flex gap-4 items-center">
-                    <div className="space-y-2">
-                      <Label>বছর</Label>
-                      <Select 
-                        value={selectedYear?.toString() || ""} 
-                        onValueChange={(value) => setSelectedYear(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="বছর" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                            <SelectItem key={year} value={year.toString()}>
-                              {year}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>মাস</Label>
-                      <Select 
-                        value={selectedMonth || "all"} 
-                        onValueChange={(value) => setSelectedMonth(value)}
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="সব মাস" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">সব মাস</SelectItem>
-                          <SelectItem value="01">জানুয়ারি</SelectItem>
-                          <SelectItem value="02">ফেব্রুয়ারি</SelectItem>
-                          <SelectItem value="03">মার্চ</SelectItem>
-                          <SelectItem value="04">এপ্রিল</SelectItem>
-                          <SelectItem value="05">মে</SelectItem>
-                          <SelectItem value="06">জুন</SelectItem>
-                          <SelectItem value="07">জুলাই</SelectItem>
-                          <SelectItem value="08">আগস্ট</SelectItem>
-                          <SelectItem value="09">সেপ্টেম্বর</SelectItem>
-                          <SelectItem value="10">অক্টোবর</SelectItem>
-                          <SelectItem value="11">নভেম্বর</SelectItem>
-                          <SelectItem value="12">ডিসেম্বর</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Payment Matrix Table */}
-                  <div className="overflow-x-auto border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="sticky left-0 bg-white z-10">সদস্য</TableHead>
-                          <TableHead className="text-center">একাউন্ট</TableHead>
-                          {getFilteredMonths().map((monthInfo) => (
-                            <TableHead key={monthInfo.key} className="text-center min-w-[100px]">
+              <CardContent className="overflow-auto">
+                <Table className="border-collapse">
+                  <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="w-[200px]">সদস্য</TableHead>
+                      {getFilteredMonths().map(m => (
+                        <TableHead key={m.key} className="text-center min-w-[80px]">{m.monthName}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map(member => (
+                      <TableRow key={member.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                        <TableCell className="font-medium">
+                           <div className="flex items-center gap-2">
+                              <Avatar className="h-8 w-8">
+                                 <AvatarImage src={member.profileImage} alt={member.name} />
+                                 <AvatarFallback className="text-xs">{member.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
                               <div>
-                                <div className="text-xs text-gray-500">{monthInfo.monthName}</div>
-                                <div className="font-semibold">{monthInfo.year}</div>
+                                 <div className="text-sm">{member.name}</div>
+                                 <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
                               </div>
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {members.map((member) => (
-                          <TableRow key={member.id}>
-                            <TableCell className="sticky left-0 bg-white z-10 font-medium">
-                              {member.name}
+                           </div>
+                        </TableCell>
+                        {getFilteredMonths().map(m => {
+                          const paid = member.contributions.find(c => c.month === m.month && c.year === m.year)
+                          return (
+                            <TableCell key={m.key} className="text-center p-2">
+                              {paid ? (
+                                <div className="bg-green-100 text-green-700 rounded text-xs py-1">৳{toBengaliNumber(paid.amount)}</div>
+                              ) : (
+                                <div className="bg-red-50 text-red-300 rounded text-xs py-1">-</div>
+                              )}
                             </TableCell>
-                            <TableCell className="text-center font-mono">
-                              {member.accountNumber}
-                            </TableCell>
-                            {getFilteredMonths().map((monthInfo) => {
-                              const payment = member.contributions.find(
-                                c => c.month === monthInfo.month && c.year === monthInfo.year
-                              )
-                              return (
-                                <TableCell key={monthInfo.key} className="text-center">
-                                  {payment ? (
-                                    <Badge variant="default" className="bg-green-100 text-green-800 hover:bg-green-200">
-                                      <div className="text-xs">৳{payment.amount}</div>
-                                      <div className="text-xs opacity-75">
-                                        {new Date(payment.paymentDate).toLocaleDateString("bn-BD", { 
-                                          month: 'short', 
-                                          day: 'numeric' 
-                                        })}
-                                      </div>
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-red-600 border-red-200">
-                                      অপরিশোধিত
-                                    </Badge>
-                                  )}
-                                </TableCell>
-                              )
-                            })}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {/* Payment Summary */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-green-600">
-                            {getPaymentStats().paidMembers}
-                          </div>
-                          <div className="text-sm text-gray-600">চাঁদা দিয়েছেন</div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-red-600">
-                            {getPaymentStats().unpaidMembers}
-                          </div>
-                          <div className="text-sm text-gray-600">চাঁদা দেননি</div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">
-                            ৳{getPaymentStats().totalAmount.toFixed(2)}
-                          </div>
-                          <div className="text-sm text-gray-600">মোট চাঁদা</div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                          )
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="overview">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Recent Contributions */}
-              <Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="h-[400px] flex flex-col">
                 <CardHeader>
-                  <CardTitle>সাম্প্রতিক চাঁদা</CardTitle>
-                  <CardDescription>শেষ ১০টি চাঁদার লেনদেন</CardDescription>
+                  <CardTitle>মাসিক আয় (সর্বশেষ ৬ মাস)</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {getRecentContributions().map((contribution, index) => (
-                      <div key={contribution.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <div className="font-medium">{contribution.memberName}</div>
-                          <div className="text-sm text-gray-500">
-                            {getMonthName(contribution.month)} {contribution.year}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-green-600">৳{contribution.amount}</div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(contribution.paymentDate).toLocaleDateString("bn-BD")}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <CardContent className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={getMonthlyData()}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" fontSize={12} tickMargin={10} />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="total" name="মোট টাকা" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Payment Status by Month */}
-              <Card>
+              <Card className="h-[400px] flex flex-col">
                 <CardHeader>
-                  <CardTitle>মাস অনুযায়ী অবস্থা</CardTitle>
-                  <CardDescription>চলতি বছরের মাসিক চাঁদার হিসাব</CardDescription>
+                  <CardTitle>চলতি মাসের পেমেন্ট স্ট্যাটাস</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {getMonthlyPaymentStatus().map((status) => (
-                      <div key={status.month} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <div className="font-medium">{status.monthName}</div>
-                          <div className="text-sm text-gray-500">{status.year}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm">
-                            <span className="text-green-600">{status.paidCount} জন</span>
-                            <span className="text-gray-400"> / </span>
-                            <span className="text-red-600">{status.unpaidCount} জন</span>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            ৳{status.totalAmount}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <CardContent className="flex-1 min-h-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={getCurrentMonthPaymentData()}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        paddingAngle={5}
+                        dataKey="value"
+                        label
+                      >
+                        {getCurrentMonthPaymentData().map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
 
-            {/* Members with Payment Issues */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>চাঁদা বকেয়া সদস্য</CardTitle>
-                <CardDescription>যারা ২ মাস বা তার বেশি চাঁদা দেননি</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getMembersWithPaymentIssues().map((member) => (
-                    <div key={member.id} className="p-4 border border-red-200 rounded-lg bg-red-50">
-                      <div className="font-medium text-red-800">{member.name}</div>
-                      <div className="text-sm text-red-600">একাউন্ট: {member.accountNumber}</div>
-                      <div className="text-sm text-red-500">
-                        বকেয়া: {member.overdueMonths} মাস
+          <TabsContent value="polls" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {polls.map((poll) => (
+                <Card key={poll.id} className={!poll.isActive ? "opacity-75" : ""}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base">{poll.question}</CardTitle>
+                        <CardDescription>{new Date(poll.createdAt).toLocaleDateString('bn-BD')}</CardDescription>
                       </div>
+                      <Badge variant={poll.isActive ? "default" : "secondary"}>
+                        {poll.isActive ? "চলমান" : "বন্ধ"}
+                      </Badge>
                     </div>
-                  ))}
-                  {getMembersWithPaymentIssues().length === 0 && (
-                    <div className="col-span-full text-center py-8 text-green-600">
-                      সব সদস্যই নিয়মিত চাঁদা দিচ্ছেন!
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      {poll.options.map((option) => {
+                         const totalVotes = poll._count.votes || 0
+                         const percentage = totalVotes > 0 ? Math.round((option._count.votes / totalVotes) * 100) : 0
+
+                         return (
+                          <div key={option.id} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span>{option.text}</span>
+                              <span className="text-muted-foreground">{percentage}% ({option._count.votes})</span>
+                            </div>
+                            <Progress value={percentage} className="h-2" />
+                          </div>
+                         )
+                      })}
                     </div>
-                  )}
+                    <div className="flex justify-between items-center text-sm text-muted-foreground pt-2 border-t">
+                      <span>মোট ভোট: {poll._count.votes}</span>
+                      {poll.isActive && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleEndPoll(poll.id)}
+                        >
+                          পোল বন্ধ করুন
+                        </Button>
+                      )}
+                    </div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+              ))}
+              {polls.length === 0 && (
+                <div className="col-span-2 text-center py-10 text-muted-foreground">
+                  কোন পোল নেই
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="financials">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>আর্থিক ব্যবস্থাপনা</CardTitle>
+                  <CardDescription>সকল সদস্যের জন্য চার্জ বা মুনাফা যোগ করুন</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleFinancialAdjustment} className="space-y-4">
+                      <div className="space-y-2">
+                          <Label>ধরন</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, type: v})}>
+                              <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="CHARGE">ব্যাংক চার্জ (কর্তন)</SelectItem>
+                                  <SelectItem value="INTEREST">ব্যাংক মুনাফা (যোগ)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="adj-amount">পরিমাণ (টাকা)</Label>
+                          <Input id="adj-amount" type="number" value={adjustment.amount} onChange={e => setAdjustment({...adjustment, amount: e.target.value})} placeholder="0.00" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="adj-desc">বিবরণ</Label>
+                          <Input id="adj-desc" value={adjustment.description} onChange={e => setAdjustment({...adjustment, description: e.target.value})} placeholder="যেমন: বাৎসরিক চার্জ" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label>কাদের জন্য?</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, target: v})} defaultValue="all">
+                              <SelectTrigger><SelectValue placeholder="নির্বাচন করুন" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="all">সকল সদস্য</SelectItem>
+                                  <SelectItem value="specific">নির্দিষ্ট সদস্য</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+
+                      {adjustment.target === 'specific' && (
+                        <div className="space-y-2">
+                          <Label>সদস্য নির্বাচন করুন</Label>
+                          <Select onValueChange={v => setAdjustment({...adjustment, memberId: v})}>
+                            <SelectTrigger><SelectValue placeholder="সদস্য নির্বাচন করুন" /></SelectTrigger>
+                            <SelectContent>
+                              {members.map(m => (
+                                <SelectItem key={m.id} value={m.id}>
+                                  {m.name} ({toBengaliNumber(m.accountNumber)})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <Button type="submit" disabled={loading}>সাবমিট করুন</Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                  <CardHeader>
+                      <CardTitle>গ্লোবাল লেনদেন ইতিহাস</CardTitle>
+                      <CardDescription>সকল ফাণ্ড অ্যাডজাস্টমেন্ট</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[400px] overflow-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>তারিখ</TableHead>
+                                  <TableHead>ধরন</TableHead>
+                                  <TableHead>পরিমাণ</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {fundAdjustments.map((adj) => (
+                                  <TableRow key={adj.id}>
+                                      <TableCell>{new Date(adj.date).toLocaleDateString('bn-BD')}</TableCell>
+                                      <TableCell>
+                                          <Badge variant={adj.type === 'INTEREST' ? 'default' : 'destructive'}>
+                                              {adj.type === 'INTEREST' ? 'মুনাফা' : 'চার্জ'}
+                                          </Badge>
+                                      </TableCell>
+                                      <TableCell>৳{toBengaliNumber(adj.amount)}</TableCell>
+                                  </TableRow>
+                              ))}
+                              {fundAdjustments.length === 0 && (
+                                  <TableRow>
+                                      <TableCell colSpan={3} className="text-center text-muted-foreground">কোন লেনদেন নেই</TableCell>
+                                  </TableRow>
+                              )}
+                          </TableBody>
+                      </Table>
+                  </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Add Member Dialog */}
+      <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>নতুন সদস্য যোগ করুন</DialogTitle>
+            <DialogDescription>সদস্যের প্রয়োজনীয় তথ্য প্রদান করুন</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddMember} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">নাম</Label>
+              <Input id="name" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">ফোন</Label>
+              <Input id="phone" value={newMember.phone} onChange={e => setNewMember({...newMember, phone: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">ঠিকানা</Label>
+              <Textarea id="address" value={newMember.address} onChange={e => setNewMember({...newMember, address: e.target.value})} />
+            </div>
+            <DialogFooter>
+              <Button type="submit">সংরক্ষণ করুন</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Contribution Dialog */}
+      <Dialog open={showAddContribution} onOpenChange={setShowAddContribution}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>চাঁদা গ্রহণ</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddContribution} className="space-y-4">
+            <div className="space-y-2">
+              <Label>সদস্য</Label>
+              <Select onValueChange={v => setNewContribution({...newContribution, memberId: v})}>
+                <SelectTrigger><SelectValue placeholder="সদস্য নির্বাচন করুন" /></SelectTrigger>
+                <SelectContent>
+                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.accountNumber})</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2">
+                  <Label>মাস</Label>
+                  <Select onValueChange={v => setNewContribution({...newContribution, month: v})}>
+                     <SelectTrigger><SelectValue placeholder="মাস" /></SelectTrigger>
+                     <SelectContent>
+                        {Object.entries({
+                            "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
+                            "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
+                            "09": "সেপ্টেম্বর", "10": "অক্টোবর", "11": "নভেম্বর", "12": "ডিসেম্বর"
+                         }).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                     </SelectContent>
+                  </Select>
+               </div>
+               <div className="space-y-2">
+                  <Label>বছর</Label>
+                  <Input type="number" value={newContribution.year} onChange={e => setNewContribution({...newContribution, year: parseInt(e.target.value)})} />
+               </div>
+            </div>
+            <div className="space-y-2">
+               <Label>পরিমাণ</Label>
+               <Input type="number" value={newContribution.amount} onChange={e => setNewContribution({...newContribution, amount: e.target.value})} />
+            </div>
+            <DialogFooter>
+              <Button type="submit">জমা দিন</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Poll Dialog */}
+      <Dialog open={showCreatePoll} onOpenChange={setShowCreatePoll}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>নতুন পোল তৈরি করুন</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreatePoll} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="poll-question">প্রশ্ন</Label>
+              <Input
+                id="poll-question"
+                value={newPoll.question}
+                onChange={(e) => setNewPoll({...newPoll, question: e.target.value})}
+                placeholder="পোলের প্রশ্ন..."
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>অপশনস</Label>
+              {newPoll.options.map((opt, idx) => (
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    value={opt}
+                    onChange={(e) => {
+                      const newOptions = [...newPoll.options]
+                      newOptions[idx] = e.target.value
+                      setNewPoll({...newPoll, options: newOptions})
+                    }}
+                    placeholder={`অপশন ${idx + 1}`}
+                    required
+                  />
+                  {newPoll.options.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const newOptions = newPoll.options.filter((_, i) => i !== idx)
+                        setNewPoll({...newPoll, options: newOptions})
+                      }}
+                    >
+                      <span className="text-red-500">×</span>
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setNewPoll({...newPoll, options: [...newPoll.options, ""]})}
+              >
+                + অপশন যোগ করুন
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button type="submit">তৈরি করুন</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Member Details Dialog */}
+      <Dialog open={!!selectedMember} onOpenChange={(open) => !open && setSelectedMember(null)}>
+         <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+               <DialogTitle>সদস্যের বিস্তারিত তথ্য</DialogTitle>
+            </DialogHeader>
+            {selectedMember && (
+               <div className="space-y-6">
+                  <div className="flex justify-center">
+                     <div className="flex flex-col items-center gap-2">
+                        <Avatar className="h-32 w-32 border-4 border-muted">
+                           <AvatarImage src={selectedMember.profileImage} alt={selectedMember.name} />
+                           <AvatarFallback className="text-4xl">{selectedMember.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="text-center">
+                           <h3 className="text-xl font-bold">{selectedMember.name}</h3>
+                           <Badge variant="secondary" className="mt-1">
+                              AC: {toBengaliNumber(selectedMember.accountNumber)}
+                           </Badge>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-3 border-t pt-4">
+                     <h4 className="font-semibold text-muted-foreground">ব্যক্তিগত তথ্য</h4>
+                     <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                           <span className="block text-muted-foreground text-xs">ফোন</span>
+                           <span>{toBengaliNumber(selectedMember.phone || "তথ্য নেই")}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">ইমেইল</span>
+                           <span>{selectedMember.email || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">জন্মতারিখ</span>
+                           <span>{selectedMember.dob || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">এনআইডি/জন্ম নিবন্ধন</span>
+                           <span>{selectedMember.nid || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">বাবার নাম</span>
+                           <span>{selectedMember.fatherName || "তথ্য নেই"}</span>
+                        </div>
+                        <div>
+                           <span className="block text-muted-foreground text-xs">মায়ের নাম</span>
+                           <span>{selectedMember.motherName || "তথ্য নেই"}</span>
+                        </div>
+                        <div className="col-span-2">
+                           <span className="block text-muted-foreground text-xs">ঠিকানা</span>
+                           <span>{selectedMember.address || "তথ্য নেই"}</span>
+                        </div>
+                     </div>
+                  </div>
+
+                  <div className="space-y-3 border-t pt-4">
+                     <h4 className="font-semibold text-muted-foreground">নমিনির তথ্য</h4>
+                     <div className="flex items-start gap-4">
+                        <Avatar className="h-16 w-16 border-2 border-muted">
+                           <AvatarImage src={selectedMember.nomineeImage} alt="Nominee" />
+                           <AvatarFallback>N</AvatarFallback>
+                        </Avatar>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm flex-1">
+                           <div>
+                              <span className="block text-muted-foreground text-xs">নাম</span>
+                              <span>{selectedMember.nomineeName || "তথ্য নেই"}</span>
+                           </div>
+                           <div>
+                              <span className="block text-muted-foreground text-xs">সম্পর্ক</span>
+                              <span>{selectedMember.nomineeRelation || "তথ্য নেই"}</span>
+                           </div>
+                           <div className="col-span-2">
+                              <span className="block text-muted-foreground text-xs">এনআইডি/জন্ম নিবন্ধন</span>
+                              <span>{selectedMember.nomineeNid || "তথ্য নেই"}</span>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               </div>
+            )}
+         </DialogContent>
+      </Dialog>
     </div>
   )
 }

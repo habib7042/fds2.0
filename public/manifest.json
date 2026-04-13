@@ -1,0 +1,53 @@
+{
+  "name": "Friends Development Society",
+  "short_name": "FDS 2.0",
+  "description": "Friends Development Society (FDS) - বন্ধুত্ব, সহযোগিতা ও সমৃদ্ধির প্রতীক। আপনার ডিজিটাল আর্থিক সহযোগী।",
+  "id": "app.vercel.newfds",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4c1d95",
+  "orientation": "portrait",
+  "categories": ["finance", "social", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Policy",
+      "url": "/policy",
+      "description": "View FDS Policies"
+    },
+    {
+      "name": "Admin Login",
+      "url": "/?tab=admin",
+      "description": "Login as Administrator"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/login.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Secure Login Screen"
+    },
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "label": "Member Dashboard"
+    }
+  ]
+}
