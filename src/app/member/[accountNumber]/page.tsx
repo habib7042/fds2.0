@@ -302,6 +302,44 @@ END:VCALENDAR`;
     return monthNames[month as keyof typeof monthNames] || month
   }
 
+
+  // Calculate Due Info
+  const calculateDue = () => {
+    if (!member) return { months: 0, amount: 0, status: 'No Due' };
+
+    const joinDate = new Date(member.createdAt);
+    const currentDate = new Date();
+
+    let totalMonths = (currentDate.getFullYear() - joinDate.getFullYear()) * 12;
+    totalMonths -= joinDate.getMonth();
+    totalMonths += currentDate.getMonth() + 1; // Include current month
+
+    // Stop accruing dues if inactive. This requires knowing WHEN they became inactive,
+    // but without tracking that, we can assume if inactive, dues don't increment from now.
+    // If they are inactive, we ideally stop at updatedAt, but to keep it simple, we just use current date or their last update.
+    if (member.isActive === false) {
+      const updateDate = new Date(member.updatedAt);
+      totalMonths = (updateDate.getFullYear() - joinDate.getFullYear()) * 12;
+      totalMonths -= joinDate.getMonth();
+      totalMonths += updateDate.getMonth() + 1;
+    }
+
+    if (totalMonths <= 0) totalMonths = 1;
+
+    const expectedContribution = totalMonths * 1000;
+    const paidContribution = member.contributions.reduce((sum, c) => sum + c.amount, 0);
+
+    const dueAmount = expectedContribution - paidContribution;
+    const dueMonths = Math.ceil(dueAmount / 1000);
+
+    return {
+      months: dueMonths > 0 ? dueMonths : 0,
+      amount: dueAmount > 0 ? dueAmount : 0,
+    };
+  };
+
+  const dueInfo = calculateDue();
+
   const getTotalBalance = () => {
     if (!member) return 0
     const contributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
@@ -753,6 +791,21 @@ END:VCALENDAR`;
       </div>
 
       <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
+
+
+        {/* Inactive Member Warning */}
+        {member.isActive === false && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-rose-50 border border-rose-200 text-rose-600 p-4 rounded-xl flex items-center gap-3 shadow-sm"
+          >
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <div className="text-sm font-medium leading-relaxed">
+              আপনার সদস্যপদ স্থগিত করা হয়েছে। নতুন কোনো চাঁদা যোগ করা যাবে না। তবে আপনার জমাকৃত টাকা ও হিসাব সুরক্ষিত আছে।
+            </div>
+          </motion.div>
+        )}
 
         {/* Member Card Section */}
         <motion.div

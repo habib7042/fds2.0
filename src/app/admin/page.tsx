@@ -57,6 +57,7 @@ interface Member {
   nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
+  isActive?: boolean
   adjustments: Adjustment[]
 }
 
@@ -231,6 +232,30 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError("Network error occurred")
+    }
+  }
+
+
+  const handleToggleMemberStatus = async (memberId: string, currentStatus: boolean) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/admin/members/${memberId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive: !currentStatus })
+      })
+
+      if (response.ok) {
+        toast.success(currentStatus ? "সদস্যপদ স্থগিত করা হয়েছে" : "সদস্যপদ সক্রিয় করা হয়েছে")
+        fetchMembers()
+      } else {
+        toast.error("স্ট্যাটাস পরিবর্তন করতে ব্যর্থ")
+      }
+    } catch (err) {
+      toast.error("Network error occurred")
     }
   }
 
@@ -884,8 +909,21 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(members.length)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Users className="h-24 w-24" /></div>
-            </CardContent>
-          </Card>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-emerald-500 to-emerald-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-emerald-50/90 z-10 relative">মোট তহবিল</CardTitle>
@@ -893,8 +931,21 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Wallet className="h-24 w-24" /></div>
-            </CardContent>
-          </Card>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-purple-500 to-purple-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-purple-50/90 z-10 relative">জমা (চলতি মাস)</CardTitle>
@@ -902,8 +953,21 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><TrendingUp className="h-24 w-24" /></div>
-            </CardContent>
-          </Card>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-rose-500 to-rose-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-rose-50/90 z-10 relative">বকেয়া সদস্য</CardTitle>
@@ -911,8 +975,21 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><AlertCircle className="h-24 w-24" /></div>
-            </CardContent>
-          </Card>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
@@ -988,6 +1065,19 @@ export default function AdminDashboard() {
                                 </Button>
                              </div>
                           </div>
+                        </div>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -1165,8 +1255,21 @@ export default function AdminDashboard() {
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleMemberStatus(m.id, m.isActive ?? true);
+                            }}
+                          >
+                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
               ))}
               {polls.length === 0 && (
                 <div className="col-span-2 text-center py-10 text-muted-foreground">
