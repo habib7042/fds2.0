@@ -985,8 +985,24 @@ export default function AdminDashboard() {
                               <CardTitle className="text-sm font-medium">
                                  {member.name}
                               </CardTitle>
-                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] py-0">{toBengaliNumber(member.accountNumber)}</Badge>
+                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] py-0">{toBengaliNumber(member.accountNumber)}</Badge>
                            </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                           <Badge variant={member.isActive !== false ? "default" : "destructive"} className="text-[10px] uppercase font-bold tracking-wider rounded-full shadow-sm">
+                             {member.isActive !== false ? "Active" : "Suspended"}
+                           </Badge>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             className={`w-full text-xs h-7 ${member.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleToggleMemberStatus(member.id, member.isActive ?? true);
+                             }}
+                           >
+                             {member.isActive !== false ? 'স্থগিত করুন' : 'সক্রিয় করুন'}
+                           </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1076,8 +1092,24 @@ export default function AdminDashboard() {
                               </Avatar>
                               <div>
                                  <div className="text-sm">{member.name}</div>
-                                 <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
+                                                                  <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
                               </div>
+                           </div>
+                           <div className="mt-2 flex items-center gap-2">
+                             <Badge variant={member.isActive !== false ? "default" : "destructive"} className="text-[10px] uppercase font-bold tracking-wider rounded-full shadow-sm">
+                               {member.isActive !== false ? "Active" : "Suspended"}
+                             </Badge>
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               className={`text-xs h-6 px-2 py-0 ${member.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 handleToggleMemberStatus(member.id, member.isActive ?? true);
+                               }}
+                             >
+                               {member.isActive !== false ? 'স্থগিত করুন' : 'সক্রিয় করুন'}
+                             </Button>
                            </div>
                         </TableCell>
                         {getFilteredMonths().map(m => {

@@ -816,9 +816,27 @@ END:VCALENDAR`;
            <MemberCard member={{ name: member.name, accountNumber: member.accountNumber, balance: getTotalBalance() }} />
         </motion.div>
 
+
         {/* Quick Actions / Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+           {dueInfo.amount > 0 && (
+             <Card className="bg-rose-50 border border-rose-200 shadow-md col-span-2 md:col-span-4">
+                <CardContent className="p-4 flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                         <AlertCircle className="h-5 w-5" />
+                      </div>
+                      <div>
+                         <div className="text-xl font-bold text-rose-700">৳{toBengaliNumber(dueInfo.amount)}</div>
+                         <div className="text-xs text-rose-600/80 font-medium">মোট বকেয়া ({toBengaliNumber(dueInfo.months)} মাস)</div>
+                      </div>
+                   </div>
+                   <Badge variant="destructive" className="bg-rose-500 hover:bg-rose-600">বকেয়া</Badge>
+                </CardContent>
+             </Card>
+           )}
            <Card className="bg-white border-0 shadow-md">
+
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <DollarSign className="h-5 w-5" />
