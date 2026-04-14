@@ -20,6 +20,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const member = await db.member.findUnique({
+      where: { id: memberId }
+    })
+
+    if (!member) {
+      return NextResponse.json(
+        { error: "Member not found" },
+        { status: 404 }
+      )
+    }
+
+    if (!member.isActive) {
+      return NextResponse.json(
+        { error: "Cannot add contribution for a suspended member" },
+        { status: 400 }
+      )
+    }
+
     const existingContribution = await db.contribution.findFirst({
       where: {
         memberId,

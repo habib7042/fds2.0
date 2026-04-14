@@ -45,6 +45,28 @@ model Member {
   votes           PollVote[]
   posts           Post[]
   subscriptions   PushSubscription[]
+  loans           Loan[]
+}
+
+model Loan {
+  id           String    @id @default(cuid())
+  memberId     String
+  amount       Float
+  reason       String
+  status       String    @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  requestDate  DateTime  @default(now())
+  approvedDate DateTime?
+  paidDate     DateTime?
+  member       Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Investment {
+  id          String    @id @default(cuid())
+  amount      Float
+  description String
+  date        DateTime  @default(now())
+  status      String    @default("ACTIVE") // ACTIVE, RETURNED
+  returnDate  DateTime?
 }
 
 model Contribution {

@@ -12,9 +12,10 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      const secret = new TextEncoder().encode(
-        process.env.JWT_SECRET || 'default_secret_key_change_me'
-      )
+        if (!process.env.JWT_SECRET) {
+          throw new Error("JWT_SECRET is not defined")
+        }
+        const secret = new TextEncoder().encode(process.env.JWT_SECRET)
       const { payload } = await jwtVerify(token, secret)
 
       // Optional: Check if the path matches the account number in the token

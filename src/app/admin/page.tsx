@@ -90,6 +90,31 @@ interface PollOption {
   }
 }
 
+interface Loan {
+  id: string
+  memberId: string
+  amount: number
+  reason: string
+  status: string
+  requestDate: string
+  approvedDate: string | null
+  paidDate: string | null
+  member: {
+    name: string
+    accountNumber: string
+    phone: string
+  }
+}
+
+interface Investment {
+  id: string
+  amount: number
+  description: string
+  date: string
+  status: string
+  returnDate: string | null
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
@@ -102,6 +127,10 @@ export default function AdminDashboard() {
   const [showCreatePoll, setShowCreatePoll] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [loans, setLoans] = useState<Loan[]>([])
+  const [investments, setInvestments] = useState<Investment[]>([])
+  const [showAddInvestment, setShowAddInvestment] = useState(false)
+  const [newInvestment, setNewInvestment] = useState({ amount: '', description: '' })
   const router = useRouter()
 
   const [newMember, setNewMember] = useState({
@@ -141,7 +170,33 @@ export default function AdminDashboard() {
     fetchMembers()
     fetchPolls()
     fetchFundAdjustments()
+    fetchLoans()
+    fetchInvestments()
   }, [])
+
+  const fetchLoans = async () => {
+    try {
+      const res = await fetch("/api/admin/loans")
+      if (res.ok) {
+        const data = await res.json()
+        setLoans(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch loans:", error)
+    }
+  }
+
+  const fetchInvestments = async () => {
+    try {
+      const res = await fetch("/api/admin/investments")
+      if (res.ok) {
+        const data = await res.json()
+        setInvestments(data)
+      }
+    } catch (error) {
+      console.error("Failed to fetch investments:", error)
+    }
+  }
 
   useEffect(() => {
     if (searchQuery) {
@@ -206,6 +261,57 @@ export default function AdminDashboard() {
         }
     } catch (e) {
         console.error("Failed to fetch fund adjustments")
+    }
+  }
+
+  const handleAddInvestment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch("/api/admin/investments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newInvestment)
+      })
+      if (res.ok) {
+        setShowAddInvestment(false)
+        setNewInvestment({ amount: '', description: '' })
+        fetchInvestments()
+      } else {
+        alert("বিনিয়োগ যুক্ত করতে সমস্যা হয়েছে")
+      }
+    } catch (error) {
+      console.error(error)
+      alert("Something went wrong")
+    }
+  }
+
+  const handleReturnInvestment = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/investments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "RETURNED" })
+      })
+      if (res.ok) {
+        fetchInvestments()
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  const handleUpdateLoanStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/admin/loans/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      })
+      if (res.ok) {
+        fetchLoans()
+      }
+    } catch (error) {
+      console.error(error)
     }
   }
 
@@ -435,7 +541,15 @@ export default function AdminDashboard() {
         }, 0)
     }, 0);
 
-    return contributions + globalAdjustments + personalAdjustments;
+    const activeInvestments = investments.reduce((sum, inv) => {
+      return inv.status === 'ACTIVE' ? sum + inv.amount : sum
+    }, 0)
+
+    const approvedLoans = loans.reduce((sum, loan) => {
+      return (loan.status === 'APPROVED') ? sum + loan.amount : sum
+    }, 0)
+
+    return contributions + globalAdjustments + personalAdjustments - activeInvestments - approvedLoans;
   }
 
   const getMonthlyData = () => {
@@ -945,12 +1059,14 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px] p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl">
+          <TabsList className="grid w-full grid-cols-7 lg:w-[700px] p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl">
             <TabsTrigger value="members">সদস্য</TabsTrigger>
             <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
             <TabsTrigger value="polls">পোলস</TabsTrigger>
             <TabsTrigger value="financials">অর্থ</TabsTrigger>
+            <TabsTrigger value="investments">বিনিয়োগ</TabsTrigger>
+            <TabsTrigger value="loans">লোন</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -1335,6 +1451,144 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </TabsContent>
+
+          <TabsContent value="investments" className="space-y-4">
+             <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">বিনিয়োগ তালিকা</h3>
+                <Button onClick={() => setShowAddInvestment(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">নতুন বিনিয়োগ</Button>
+             </div>
+
+             {showAddInvestment && (
+               <Card className="mb-4">
+                 <CardHeader>
+                   <CardTitle>নতুন বিনিয়োগ যুক্ত করুন</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <form onSubmit={handleAddInvestment} className="space-y-4">
+                     <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2">
+                         <Label>টাকার পরিমাণ</Label>
+                         <Input type="number" required value={newInvestment.amount} onChange={e => setNewInvestment({...newInvestment, amount: e.target.value})} placeholder="পরিমাণ" />
+                       </div>
+                       <div className="space-y-2">
+                         <Label>বিবরণ</Label>
+                         <Input required value={newInvestment.description} onChange={e => setNewInvestment({...newInvestment, description: e.target.value})} placeholder="কোথায় বিনিয়োগ করা হচ্ছে" />
+                       </div>
+                     </div>
+                     <div className="flex gap-2">
+                       <Button type="submit">যুক্ত করুন</Button>
+                       <Button type="button" variant="outline" onClick={() => setShowAddInvestment(false)}>বাতিল</Button>
+                     </div>
+                   </form>
+                 </CardContent>
+               </Card>
+             )}
+
+             <Card>
+               <CardContent className="p-0">
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead>তারিখ</TableHead>
+                       <TableHead>বিবরণ</TableHead>
+                       <TableHead className="text-right">পরিমাণ</TableHead>
+                       <TableHead>স্ট্যাটাস</TableHead>
+                       <TableHead className="text-right">অ্যাকশন</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {investments.map(inv => (
+                       <TableRow key={inv.id}>
+                         <TableCell>{new Date(inv.date).toLocaleDateString('bn-BD')}</TableCell>
+                         <TableCell>{inv.description}</TableCell>
+                         <TableCell className="text-right">৳{toBengaliNumber(inv.amount)}</TableCell>
+                         <TableCell>
+                           <Badge variant={inv.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                             {inv.status === 'ACTIVE' ? 'চলমান' : 'ফেরত'}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-right">
+                           {inv.status === 'ACTIVE' && (
+                             <Button variant="outline" size="sm" onClick={() => handleReturnInvestment(inv.id)}>
+                               ফেরত নিন
+                             </Button>
+                           )}
+                           {inv.status === 'RETURNED' && inv.returnDate && (
+                             <span className="text-xs text-muted-foreground">ফেরত: {new Date(inv.returnDate).toLocaleDateString('bn-BD')}</span>
+                           )}
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                     {investments.length === 0 && (
+                       <TableRow>
+                         <TableCell colSpan={5} className="text-center text-muted-foreground py-8">কোনো বিনিয়োগ নেই</TableCell>
+                       </TableRow>
+                     )}
+                   </TableBody>
+                 </Table>
+               </CardContent>
+             </Card>
+          </TabsContent>
+
+          <TabsContent value="loans" className="space-y-4">
+             <h3 className="text-lg font-medium">লোন অনুরোধসমূহ</h3>
+             <Card>
+               <CardContent className="p-0">
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead>সদস্য</TableHead>
+                       <TableHead>তারিখ</TableHead>
+                       <TableHead className="text-right">পরিমাণ</TableHead>
+                       <TableHead>কারণ</TableHead>
+                       <TableHead>স্ট্যাটাস</TableHead>
+                       <TableHead className="text-right">অ্যাকশন</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {loans.map(loan => (
+                       <TableRow key={loan.id}>
+                         <TableCell>
+                           {loan.member.name}<br/>
+                           <span className="text-xs text-muted-foreground">{loan.member.phone}</span>
+                         </TableCell>
+                         <TableCell>{new Date(loan.requestDate).toLocaleDateString('bn-BD')}</TableCell>
+                         <TableCell className="text-right">৳{toBengaliNumber(loan.amount)}</TableCell>
+                         <TableCell>{loan.reason}</TableCell>
+                         <TableCell>
+                           <Badge variant={
+                             loan.status === 'APPROVED' ? 'default' :
+                             loan.status === 'REJECTED' ? 'destructive' :
+                             loan.status === 'PAID' ? 'secondary' : 'outline'
+                           }>
+                             {loan.status === 'PENDING' ? 'অপেক্ষমান' :
+                              loan.status === 'APPROVED' ? 'অনুমোদিত' :
+                              loan.status === 'REJECTED' ? 'বাতিল' : 'পরিশোধিত'}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-right space-x-2">
+                           {loan.status === 'PENDING' && (
+                             <>
+                               <Button variant="default" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'APPROVED')}>অনুমোদন</Button>
+                               <Button variant="destructive" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'REJECTED')}>বাতিল</Button>
+                             </>
+                           )}
+                           {loan.status === 'APPROVED' && (
+                              <Button variant="outline" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'PAID')}>পরিশোধিত</Button>
+                           )}
+                         </TableCell>
+                       </TableRow>
+                     ))}
+                     {loans.length === 0 && (
+                       <TableRow>
+                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">কোনো লোন নেই</TableCell>
+                       </TableRow>
+                     )}
+                   </TableBody>
+                 </Table>
+               </CardContent>
+             </Card>
+          </TabsContent>
         </Tabs>
       </div>
 
@@ -1377,7 +1631,7 @@ export default function AdminDashboard() {
               <Select onValueChange={v => setNewContribution({...newContribution, memberId: v})}>
                 <SelectTrigger><SelectValue placeholder="সদস্য নির্বাচন করুন" /></SelectTrigger>
                 <SelectContent>
-                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.accountNumber})</SelectItem>)}
+                  {members.filter(m => m.isActive).map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.accountNumber})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

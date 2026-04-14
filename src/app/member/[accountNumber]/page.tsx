@@ -92,11 +92,24 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+interface Loan {
+  id: string
+  amount: number
+  reason: string
+  status: string
+  requestDate: string
+  approvedDate: string | null
+  paidDate: string | null
+}
+
 export default function MemberDashboard() {
   const [member, setMember] = useState<Member | null>(null)
+  const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [showLoanRequest, setShowLoanRequest] = useState(false)
+  const [newLoan, setNewLoan] = useState({ amount: '', reason: '' })
   const [isEditing, setIsEditing] = useState(false)
   const [isChangingPin, setIsChangingPin] = useState(false)
   const [newPin, setNewPin] = useState("")
@@ -114,7 +127,20 @@ export default function MemberDashboard() {
 
   useEffect(() => {
     fetchMemberData()
+    fetchLoans()
   }, [accountNumber])
+
+  const fetchLoans = async () => {
+    try {
+      const res = await fetch(`/api/member/${accountNumber}/loans`)
+      if (res.ok) {
+        const data = await res.json()
+        setLoans(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch loans:", err)
+    }
+  }
 
   useEffect(() => {
     if (member) {
@@ -142,6 +168,28 @@ export default function MemberDashboard() {
       })
     }
   }, [])
+
+  const handleLoanRequest = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const res = await fetch(`/api/member/${accountNumber}/loans`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newLoan)
+      })
+      if (res.ok) {
+        setShowLoanRequest(false)
+        setNewLoan({ amount: '', reason: '' })
+        fetchLoans()
+        alert("লোনের আবেদন সফলভাবে পাঠানো হয়েছে।")
+      } else {
+        alert("লোনের আবেদন পাঠাতে সমস্যা হয়েছে।")
+      }
+    } catch (err) {
+      console.error(err)
+      alert("Something went wrong")
+    }
+  }
 
   const fetchMemberData = async () => {
     try {
@@ -902,9 +950,10 @@ export default function MemberDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100/80 rounded-xl mb-6">
+          <TabsList className="grid w-full grid-cols-3 p-1.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-xl">
             <TabsTrigger value="history" className="rounded-lg text-xs font-medium">লেনদেন</TabsTrigger>
             <TabsTrigger value="profile" className="rounded-lg text-xs font-medium">প্রোফাইল</TabsTrigger>
+            <TabsTrigger value="loans" className="rounded-lg text-xs font-medium">লোন</TabsTrigger>
           </TabsList>
 
           <TabsContent value="history" className="space-y-4 min-h-[300px]">
@@ -1230,6 +1279,65 @@ export default function MemberDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="loans" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium">আমার লোনসমূহ</h3>
+              <Button onClick={() => setShowLoanRequest(!showLoanRequest)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                {showLoanRequest ? "বাতিল করুন" : "নতুন আবেদন"}
+              </Button>
+            </div>
+
+            {showLoanRequest && (
+              <Card className="mb-4">
+                <CardContent className="pt-6">
+                  <form onSubmit={handleLoanRequest} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>টাকার পরিমাণ</Label>
+                      <Input type="number" required value={newLoan.amount} onChange={e => setNewLoan({...newLoan, amount: e.target.value})} placeholder="পরিমাণ" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>লোন নেওয়ার কারণ</Label>
+                      <Input required value={newLoan.reason} onChange={e => setNewLoan({...newLoan, reason: e.target.value})} placeholder="কারণ উল্লেখ করুন" />
+                    </div>
+                    <Button type="submit" className="w-full">আবেদন জমা দিন</Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="space-y-4">
+              {loans.map(loan => (
+                <Card key={loan.id} className="overflow-hidden">
+                  <div className="p-4 border-l-4" style={{ borderColor: loan.status === 'APPROVED' ? '#16a34a' : loan.status === 'REJECTED' ? '#dc2626' : loan.status === 'PAID' ? '#94a3b8' : '#eab308' }}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-medium text-lg">৳{toBengaliNumber(loan.amount)}</h4>
+                        <p className="text-sm text-muted-foreground">{loan.reason}</p>
+                      </div>
+                      <Badge variant={
+                         loan.status === 'APPROVED' ? 'default' :
+                         loan.status === 'REJECTED' ? 'destructive' :
+                         loan.status === 'PAID' ? 'secondary' : 'outline'
+                      }>
+                         {loan.status === 'PENDING' ? 'অপেক্ষমান' :
+                          loan.status === 'APPROVED' ? 'অনুমোদিত' :
+                          loan.status === 'REJECTED' ? 'বাতিল' : 'পরিশোধিত'}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      আবেদনের তারিখ: {new Date(loan.requestDate).toLocaleDateString('bn-BD')}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              {loans.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground bg-white/50 rounded-xl">
+                  কোনো লোনের তথ্য পাওয়া যায়নি
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>
