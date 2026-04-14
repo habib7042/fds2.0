@@ -749,7 +749,7 @@ END:VCALENDAR`;
   if (!member) return null
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 md:pb-8">
+    <div className="min-h-screen bg-background pb-20 md:pb-8">
       {/* Modern Profile Header */}
       <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white backdrop-blur-md bg-opacity-90">
          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
@@ -835,36 +835,36 @@ END:VCALENDAR`;
                 </CardContent>
              </Card>
            )}
-           <Card className="bg-white border-0 shadow-md">
+           <Card className="card">
 
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <DollarSign className="h-5 w-5" />
                  </div>
                  <div>
-                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
+                    <div className="text-xl font-bold text-foreground">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">বর্তমান স্থিতি</div>
                  </div>
               </CardContent>
            </Card>
-           <Card className="bg-white border-0 shadow-md">
+           <Card className="card">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                     <Calendar className="h-5 w-5" />
                  </div>
                  <div>
-                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                    <div className="text-xl font-bold text-foreground">৳{toBengaliNumber(getCurrentYearContributions())}</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">চলতি বছর</div>
                  </div>
               </CardContent>
            </Card>
-           <Card className="bg-white border-0 shadow-md cursor-pointer hover:bg-slate-50 transition-colors" onClick={handleDownloadCalendarReminder}>
+           <Card className="card cursor-pointer hover:bg-background transition-colors" onClick={handleDownloadCalendarReminder}>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
                     <Bell className="h-5 w-5" />
                  </div>
                  <div>
-                    <div className="text-sm font-bold text-gray-900 mt-1">রিমাইন্ডার</div>
+                    <div className="text-sm font-bold text-foreground mt-1">রিমাইন্ডার</div>
                     <div className="text-[10px] text-muted-foreground uppercase tracking-wider">মাসিক চাঁদা</div>
                  </div>
               </CardContent>

@@ -842,7 +842,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20 md:pb-8">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 shadow-sm">
+      <div className="md:hidden flex items-center justify-between p-4 border-b card/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 shadow-sm">
         <div className="font-bold text-lg">অ্যাডমিন প্যানেল</div>
         <Sheet>
           <SheetTrigger asChild>
@@ -872,7 +872,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800">
+        <div className="hidden md:flex justify-between items-center card/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">অ্যাডমিন ড্যাশবোর্ড</h1>
             <p className="text-gray-500">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
@@ -905,7 +905,7 @@ export default function AdminDashboard() {
           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-blue-500 to-blue-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-slate-100 dark:border-slate-800">
               <CardTitle className="text-sm font-medium text-blue-50/90 z-10 relative">মোট সদস্য</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Users className="h-5 w-5 text-white" /></div>
+              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Users className="h-5 w-5 text-white" /></div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(members.length)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Users className="h-24 w-24" /></div>
@@ -915,7 +915,7 @@ export default function AdminDashboard() {
           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-emerald-500 to-emerald-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-emerald-50/90 z-10 relative">মোট তহবিল</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Wallet className="h-5 w-5 text-white" /></div>
+              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Wallet className="h-5 w-5 text-white" /></div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Wallet className="h-24 w-24" /></div>
@@ -925,7 +925,7 @@ export default function AdminDashboard() {
           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-purple-500 to-purple-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-purple-50/90 z-10 relative">জমা (চলতি মাস)</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><TrendingUp className="h-5 w-5 text-white" /></div>
+              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><TrendingUp className="h-5 w-5 text-white" /></div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><TrendingUp className="h-24 w-24" /></div>
@@ -935,7 +935,7 @@ export default function AdminDashboard() {
            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-rose-500 to-rose-600 text-white group">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-rose-50/90 z-10 relative">বকেয়া সদস্য</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><AlertCircle className="h-5 w-5 text-white" /></div>
+              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><AlertCircle className="h-5 w-5 text-white" /></div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><AlertCircle className="h-24 w-24" /></div>
@@ -974,7 +974,7 @@ export default function AdminDashboard() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Card className="hover:shadow-xl transition-all duration-300 border-slate-200/60 hover:border-blue-200 bg-white/80 backdrop-blur-sm group">
+                    <Card className="hover:shadow-xl transition-all duration-300 border-slate-200/60 hover:border-blue-200 card/80 backdrop-blur-sm group">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-3">
                            <Avatar className="h-10 w-10">
@@ -1083,7 +1083,7 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {members.map(member => (
-                      <TableRow key={member.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                      <TableRow key={member.id} className="hover:bg-background/80 dark:hover:bg-slate-800/50 transition-colors">
                         <TableCell className="font-medium">
                            <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
