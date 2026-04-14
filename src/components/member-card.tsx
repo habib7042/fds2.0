@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, Share2, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import html2canvas from "html2canvas"
+import * as htmlToImage from "html-to-image"
 import { toast } from "sonner"
 
 interface MemberCardProps {
@@ -29,63 +29,59 @@ export function MemberCard({ member }: MemberCardProps) {
     if (!cardRef.current) return
 
     try {
-      const canvas = await html2canvas(cardRef.current, {
-        scale: 3,
-        backgroundColor: null,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        onclone: (clonedDoc) => {
-           // Ensure fonts and elements are ready
-           const clonedCard = clonedDoc.querySelector('[data-card-container]') as HTMLElement
-           if (clonedCard) {
-              clonedCard.style.transform = 'none'
-              clonedCard.style.boxShadow = 'none'
-           }
+      toast.loading("কার্ড প্রস্তুত হচ্ছে...", { id: "share-toast" })
+
+      const dataUrl = await htmlToImage.toJpeg(cardRef.current, {
+        quality: 0.95,
+        pixelRatio: 3,
+        style: {
+          transform: 'none',
+          boxShadow: 'none',
         }
       })
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          toast.error("কার্ড তৈরি করতে সমস্যা হয়েছে")
-          return
-        }
+      const blob = await (await fetch(dataUrl)).blob()
 
-        const fileName = `fds-card-${member.accountNumber}.jpg`
-        const file = new File([blob], fileName, { type: "image/jpeg" })
+      if (!blob) {
+        toast.dismiss("share-toast")
+        toast.error("কার্ড তৈরি করতে সমস্যা হয়েছে")
+        return
+      }
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: 'FDS Member Card',
-              text: 'Here is my FDS Member Card'
-            })
-            toast.success("কার্ড শেয়ার করা হয়েছে")
-          } catch (shareError) {
-             console.error("Error sharing:", shareError)
-             // Fallback to download if sharing fails or is cancelled
-             const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
-             const a = document.createElement("a")
-             a.href = dataUrl
-             a.download = fileName
-             document.body.appendChild(a)
-             a.click()
-             document.body.removeChild(a)
-             toast.success("কার্ড ডাউনলোড হয়েছে")
-          }
-        } else {
-          // Fallback to download
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.9)
-          const a = document.createElement("a")
-          a.href = dataUrl
-          a.download = fileName
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          toast.success("কার্ড ডাউনলোড হয়েছে")
+      const fileName = `fds-card-${member.accountNumber}.jpg`
+      const file = new File([blob], fileName, { type: "image/jpeg" })
+
+      toast.dismiss("share-toast")
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'FDS Member Card',
+            text: 'Here is my FDS Member Card'
+          })
+          toast.success("কার্ড শেয়ার করা হয়েছে")
+        } catch (shareError) {
+           console.error("Error sharing:", shareError)
+           // Fallback to download if sharing fails or is cancelled
+           const a = document.createElement("a")
+           a.href = dataUrl
+           a.download = fileName
+           document.body.appendChild(a)
+           a.click()
+           document.body.removeChild(a)
+           toast.success("কার্ড ডাউনলোড হয়েছে")
         }
-      }, "image/jpeg", 0.9)
+      } else {
+        // Fallback to download
+        const a = document.createElement("a")
+        a.href = dataUrl
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        toast.success("কার্ড ডাউনলোড হয়েছে")
+      }
     } catch (err) {
       console.error(err)
       toast.error("কার্ড ডাউনলোড করতে সমস্যা হয়েছে")

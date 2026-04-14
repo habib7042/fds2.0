@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard, AlertCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -167,28 +167,38 @@ export default function MemberDashboard() {
   }
 
   const handleDownloadCalendarReminder = () => {
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//FDS//Monthly Deposit Reminder//EN
-BEGIN:VEVENT
-SUMMARY:FDS Monthly Deposit Reminder
-DESCRIPTION:Please remember to make your monthly deposit to the Friends Development Society.
-RRULE:FREQ=MONTHLY;BYMONTHDAY=10
-DTSTART:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-UID:fds-reminder-${new Date().getTime()}@fds.com
-END:VEVENT
-END:VCALENDAR`;
+    // Generate dates for Google Calendar URL format
+    const now = new Date()
+    // Find the next 10th of the month
+    let nextTenth = new Date(now.getFullYear(), now.getMonth(), 10, 9, 0, 0)
+    if (now.getDate() > 10) {
+      nextTenth = new Date(now.getFullYear(), now.getMonth() + 1, 10, 9, 0, 0)
+    }
 
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'fds_monthly_deposit.ics');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("ক্যালেন্ডার রিমাইন্ডার ডাউনলোড হয়েছে");
+    const formatDateForGcal = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '')
+    const startTime = formatDateForGcal(nextTenth)
+
+    // Add 1 hour for end time
+    const endTimeObj = new Date(nextTenth.getTime() + 60 * 60 * 1000)
+    const endTime = formatDateForGcal(endTimeObj)
+
+    // Create Google Calendar Link for recurring event (Monthly on the 10th)
+    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=FDS+Monthly+Deposit+Reminder&details=Please+remember+to+make+your+monthly+deposit+to+the+Friends+Development+Society.&dates=${startTime}/${endTime}&recur=RRULE:FREQ=MONTHLY;BYMONTHDAY=10`
+
+    // Check if device is iOS (Apple devices handle ICS well via data URI)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS) {
+       // Create ICS for Apple devices which nicely opens the Calendar app
+       const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//FDS//Monthly Deposit Reminder//EN\nBEGIN:VEVENT\nSUMMARY:FDS Monthly Deposit Reminder\nDESCRIPTION:Please remember to make your monthly deposit to the Friends Development Society.\nRRULE:FREQ=MONTHLY;BYMONTHDAY=10\nDTSTART:${startTime}\nDTEND:${endTime}\nDTSTAMP:${formatDateForGcal(now)}\nUID:fds-reminder-${now.getTime()}@fds.com\nEND:VEVENT\nEND:VCALENDAR`;
+       const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
+       window.location.href = dataUri;
+       toast.success("ক্যালেন্ডারে রিমাইন্ডার যোগ করা হচ্ছে")
+    } else {
+       // For Android and others, Google Calendar link is much more reliable
+       window.open(gcalUrl, '_blank')
+       toast.success("গুগল ক্যালেন্ডারে রিমাইন্ডার যোগ করুন")
+    }
   }
 
   const handleSubscribe = async () => {
@@ -749,9 +759,13 @@ END:VCALENDAR`;
   if (!member) return null
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8">
+    <div className="min-h-screen bg-background pb-20 md:pb-8 relative overflow-hidden">
+      {/* Subtle modern background elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-500/10 rounded-full blur-[100px] pointer-events-none" />
+
       {/* Modern Profile Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white backdrop-blur-md bg-opacity-90">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white backdrop-blur-md bg-opacity-90 border-b border-white/10">
          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <Avatar className="h-9 w-9 border-2 border-white/30">
@@ -818,57 +832,72 @@ END:VCALENDAR`;
 
 
         {/* Quick Actions / Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
            {dueInfo.amount > 0 && (
-             <Card className="bg-rose-50 border border-rose-200 shadow-md col-span-2 md:col-span-4">
-                <CardContent className="p-4 flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-                         <AlertCircle className="h-5 w-5" />
+             <motion.div
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               className="col-span-2 md:col-span-3 bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 border border-rose-200 dark:border-rose-800 shadow-md rounded-2xl overflow-hidden"
+             >
+                <div className="p-4 flex items-center justify-between">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
+                         <AlertCircle className="h-6 w-6" />
                       </div>
                       <div>
-                         <div className="text-xl font-bold text-rose-700">৳{toBengaliNumber(dueInfo.amount)}</div>
-                         <div className="text-xs text-rose-600/80 font-medium">মোট বকেয়া ({toBengaliNumber(dueInfo.months)} মাস)</div>
+                         <div className="text-2xl font-black text-rose-700 dark:text-rose-400 drop-shadow-sm">৳{toBengaliNumber(dueInfo.amount)}</div>
+                         <div className="text-sm text-rose-600/80 dark:text-rose-400/80 font-semibold tracking-wide">মোট বকেয়া ({toBengaliNumber(dueInfo.months)} মাস)</div>
                       </div>
                    </div>
-                   <Badge variant="destructive" className="bg-rose-500 hover:bg-rose-600">বকেয়া</Badge>
+                   <Badge variant="destructive" className="bg-rose-500 hover:bg-rose-600 shadow-sm border-0 font-medium px-3 py-1">বকেয়া</Badge>
+                </div>
+             </motion.div>
+           )}
+
+           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }}>
+             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden group">
+                <CardContent className="p-5 flex flex-col items-center justify-center text-center gap-3 relative">
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                      <DollarSign className="h-6 w-6" />
+                   </div>
+                   <div>
+                      <div className="text-2xl font-black text-foreground tracking-tight drop-shadow-sm">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">বর্তমান স্থিতি</div>
+                   </div>
                 </CardContent>
              </Card>
-           )}
-           <Card className="card">
+           </motion.div>
 
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
-                 <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-                    <DollarSign className="h-5 w-5" />
-                 </div>
-                 <div>
-                    <div className="text-xl font-bold text-foreground">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">বর্তমান স্থিতি</div>
-                 </div>
-              </CardContent>
-           </Card>
-           <Card className="card">
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
-                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                    <Calendar className="h-5 w-5" />
-                 </div>
-                 <div>
-                    <div className="text-xl font-bold text-foreground">৳{toBengaliNumber(getCurrentYearContributions())}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">চলতি বছর</div>
-                 </div>
-              </CardContent>
-           </Card>
-           <Card className="card cursor-pointer hover:bg-background transition-colors" onClick={handleDownloadCalendarReminder}>
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
-                 <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-                    <Bell className="h-5 w-5" />
-                 </div>
-                 <div>
-                    <div className="text-sm font-bold text-foreground mt-1">রিমাইন্ডার</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">মাসিক চাঁদা</div>
-                 </div>
-              </CardContent>
-           </Card>
+           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }}>
+             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden group">
+                <CardContent className="p-5 flex flex-col items-center justify-center text-center gap-3 relative">
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                      <Calendar className="h-6 w-6" />
+                   </div>
+                   <div>
+                      <div className="text-2xl font-black text-foreground tracking-tight drop-shadow-sm">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">চলতি বছর</div>
+                   </div>
+                </CardContent>
+             </Card>
+           </motion.div>
+
+           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }} className="col-span-2 md:col-span-1">
+             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl cursor-pointer overflow-hidden group" onClick={handleDownloadCalendarReminder}>
+                <CardContent className="p-5 flex flex-row md:flex-col items-center justify-center text-center gap-4 md:gap-3 relative">
+                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
+                      <Bell className="h-6 w-6" />
+                   </div>
+                   <div className="text-left md:text-center">
+                      <div className="text-lg md:text-xl font-black text-foreground drop-shadow-sm">রিমাইন্ডার সেট</div>
+                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">মাসিক চাঁদা</div>
+                   </div>
+                </CardContent>
+             </Card>
+           </motion.div>
         </div>
 
         {/* Main Content Tabs */}
