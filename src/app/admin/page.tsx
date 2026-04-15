@@ -11,11 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
+import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, Briefcase } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
@@ -101,12 +101,25 @@ interface AdminLoan {
   }
 }
 
+interface Investment {
+  id: string
+  amount: number
+  project: string
+  status: "ACTIVE" | "RETURNED"
+  date: string
+  description?: string
+  createdAt: string
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
   const [adminLoans, setAdminLoans] = useState<AdminLoan[]>([])
   const [fundAdjustments, setFundAdjustments] = useState<FundAdjustment[]>([])
+  const [investments, setInvestments] = useState<Investment[]>([])
+  const [showAddInvestment, setShowAddInvestment] = useState(false)
+  const [newInvestment, setNewInvestment] = useState({ amount: "", project: "", description: "" })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
@@ -154,7 +167,72 @@ export default function AdminDashboard() {
     fetchPolls()
     fetchFundAdjustments()
     fetchAdminLoans()
+    fetchInvestments()
   }, [])
+
+  const fetchInvestments = async () => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/investments", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setInvestments(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch investments")
+    }
+  }
+
+  const handleUpdateInvestmentStatus = async (id: string, status: string) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/admin/investments/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      })
+
+      if (response.ok) {
+        toast.success(`বিনিয়োগ স্ট্যাটাস আপডেট হয়েছে`)
+        fetchInvestments()
+      } else {
+        toast.error("স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
+
+  const handleAddInvestment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/investments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(newInvestment)
+      })
+
+      if (response.ok) {
+        toast.success("নতুন বিনিয়োগ যোগ করা হয়েছে")
+        setShowAddInvestment(false)
+        setNewInvestment({ amount: "", project: "", description: "" })
+        fetchInvestments()
+      } else {
+        toast.error("বিনিয়োগ যোগ করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
 
   const fetchAdminLoans = async () => {
     try {
@@ -466,7 +544,11 @@ export default function AdminDashboard() {
         return loan.status === 'APPROVED' ? sum + loan.amount : sum
     }, 0)
 
-    return contributions + globalAdjustments + personalAdjustments - activeLoans;
+    const activeInvestments = investments.reduce((sum, inv) => {
+        return inv.status === 'ACTIVE' ? sum + inv.amount : sum
+    }, 0)
+
+    return contributions + globalAdjustments + personalAdjustments - activeLoans - activeInvestments;
   }
 
   const getMonthlyData = () => {
@@ -972,13 +1054,35 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 lg:w-[700px]">
-            <TabsTrigger value="members">সদস্য</TabsTrigger>
-            <TabsTrigger value="payments">হিসাব</TabsTrigger>
-            <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
-            <TabsTrigger value="polls">পোলস</TabsTrigger>
-            <TabsTrigger value="financials">অর্থ</TabsTrigger>
-            <TabsTrigger value="loans">লোন</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8 h-auto bg-transparent">
+            <TabsTrigger value="members" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-blue-100 rounded-full"><Users className="h-5 w-5 text-blue-600" /></div>
+              <span className="text-xs font-medium">সদস্য</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-green-100 rounded-full"><CreditCard className="h-5 w-5 text-green-600" /></div>
+              <span className="text-xs font-medium">হিসাব</span>
+            </TabsTrigger>
+            <TabsTrigger value="overview" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-purple-100 rounded-full"><BarChart2 className="h-5 w-5 text-purple-600" /></div>
+              <span className="text-xs font-medium">সারসংক্ষেপ</span>
+            </TabsTrigger>
+            <TabsTrigger value="polls" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-pink-100 rounded-full"><FileText className="h-5 w-5 text-pink-600" /></div>
+              <span className="text-xs font-medium">পোলস</span>
+            </TabsTrigger>
+            <TabsTrigger value="financials" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-indigo-100 rounded-full"><TrendingUp className="h-5 w-5 text-indigo-600" /></div>
+              <span className="text-xs font-medium">অর্থ</span>
+            </TabsTrigger>
+            <TabsTrigger value="loans" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-amber-100 rounded-full"><Wallet className="h-5 w-5 text-amber-600" /></div>
+              <span className="text-xs font-medium">লোন</span>
+            </TabsTrigger>
+            <TabsTrigger value="investments" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-teal-100 rounded-full"><Briefcase className="h-5 w-5 text-teal-600" /></div>
+              <span className="text-xs font-medium">বিনিয়োগ</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -1377,6 +1481,95 @@ export default function AdminDashboard() {
                             )}
                             {loan.status === 'APPROVED' && (
                               <Button size="sm" variant="outline" onClick={() => handleUpdateLoanStatus(loan.id, 'PAID')}>পরিশোধিত</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="investments" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold">ফান্ড বিনিয়োগ</h2>
+              <Dialog open={showAddInvestment} onOpenChange={setShowAddInvestment}>
+                <DialogTrigger asChild>
+                  <Button className="bg-teal-600 hover:bg-teal-700">নতুন বিনিয়োগ</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>নতুন ফান্ড বিনিয়োগ</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddInvestment} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>পরিমাণ (টাকা)</Label>
+                      <Input
+                        type="number"
+                        value={newInvestment.amount}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, amount: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>প্রজেক্ট / খাত</Label>
+                      <Input
+                        value={newInvestment.project}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, project: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>বিবরণ</Label>
+                      <Textarea
+                        value={newInvestment.description}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, description: e.target.value })}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700">সংরক্ষণ করুন</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>প্রজেক্ট</TableHead>
+                      <TableHead>পরিমাণ</TableHead>
+                      <TableHead>তারিখ</TableHead>
+                      <TableHead>স্ট্যাটাস</TableHead>
+                      <TableHead className="text-right">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {investments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">কোনো বিনিয়োগ নেই</TableCell>
+                      </TableRow>
+                    ) : (
+                      investments.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="font-medium">
+                            {inv.project}
+                            {inv.description && <div className="text-xs text-muted-foreground mt-1">{inv.description}</div>}
+                          </TableCell>
+                          <TableCell>৳{inv.amount}</TableCell>
+                          <TableCell>{new Date(inv.date).toLocaleDateString('bn-BD')}</TableCell>
+                          <TableCell>
+                            <Badge variant={inv.status === 'ACTIVE' ? 'default' : 'secondary'} className={inv.status === 'ACTIVE' ? 'bg-teal-500' : ''}>
+                              {inv.status === 'ACTIVE' ? 'চলমান' : 'ফেরত'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {inv.status === 'ACTIVE' && (
+                              <Button size="sm" variant="outline" onClick={() => handleUpdateInvestmentStatus(inv.id, 'RETURNED')}>
+                                ফেরত নিন
+                              </Button>
                             )}
                           </TableCell>
                         </TableRow>
