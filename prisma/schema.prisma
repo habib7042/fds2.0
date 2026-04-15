@@ -51,6 +51,7 @@ model Member {
   votes         PollVote[]
   adjustments   AccountAdjustment[]
   subscriptions PushSubscription[]
+  loans         Loan[]
 }
 
 model Contribution {
@@ -169,4 +170,16 @@ model PollVote {
   option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
   @@unique([voterId, pollId])
+}
+
+model Loan {
+  id        String   @id @default(cuid())
+  memberId  String
+  amount    Float
+  purpose   String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }

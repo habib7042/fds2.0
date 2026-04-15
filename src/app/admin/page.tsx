@@ -89,10 +89,23 @@ interface PollOption {
   }
 }
 
+interface AdminLoan {
+  id: string
+  amount: number
+  purpose: string
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID"
+  createdAt: string
+  member: {
+    name: string
+    accountNumber: string
+  }
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
+  const [adminLoans, setAdminLoans] = useState<AdminLoan[]>([])
   const [fundAdjustments, setFundAdjustments] = useState<FundAdjustment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -140,7 +153,46 @@ export default function AdminDashboard() {
     fetchMembers()
     fetchPolls()
     fetchFundAdjustments()
+    fetchAdminLoans()
   }, [])
+
+  const fetchAdminLoans = async () => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/loans", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setAdminLoans(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin loans")
+    }
+  }
+
+  const handleUpdateLoanStatus = async (id: string, status: string) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/loans", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ id, status })
+      })
+
+      if (response.ok) {
+        toast.success(`লোনের স্ট্যাটাস ${status} করা হয়েছে`)
+        fetchAdminLoans()
+      } else {
+        toast.error("স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
 
   useEffect(() => {
     if (searchQuery) {
@@ -410,7 +462,11 @@ export default function AdminDashboard() {
         }, 0)
     }, 0);
 
-    return contributions + globalAdjustments + personalAdjustments;
+    const activeLoans = adminLoans.reduce((sum, loan) => {
+        return loan.status === 'APPROVED' ? sum + loan.amount : sum
+    }, 0)
+
+    return contributions + globalAdjustments + personalAdjustments - activeLoans;
   }
 
   const getMonthlyData = () => {
@@ -916,12 +972,13 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[700px]">
             <TabsTrigger value="members">সদস্য</TabsTrigger>
             <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
             <TabsTrigger value="polls">পোলস</TabsTrigger>
             <TabsTrigger value="financials">অর্থ</TabsTrigger>
+            <TabsTrigger value="loans">লোন</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -1271,6 +1328,64 @@ export default function AdminDashboard() {
                   </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="loans" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>লোন ম্যানেজমেন্ট</CardTitle>
+                <CardDescription>সদস্যদের লোনের আবেদন এবং বর্তমান অবস্থা</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>সদস্য</TableHead>
+                      <TableHead>পরিমাণ</TableHead>
+                      <TableHead>কারণ</TableHead>
+                      <TableHead>তারিখ</TableHead>
+                      <TableHead>স্ট্যাটাস</TableHead>
+                      <TableHead className="text-right">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {adminLoans.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center">কোনো লোন নেই</TableCell>
+                      </TableRow>
+                    ) : (
+                      adminLoans.map((loan) => (
+                        <TableRow key={loan.id}>
+                          <TableCell className="font-medium">
+                            {loan.member?.name} <br/>
+                            <span className="text-xs text-muted-foreground">{loan.member?.accountNumber}</span>
+                          </TableCell>
+                          <TableCell>৳{loan.amount}</TableCell>
+                          <TableCell>{loan.purpose}</TableCell>
+                          <TableCell>{new Date(loan.createdAt).toLocaleDateString('bn-BD')}</TableCell>
+                          <TableCell>
+                            <Badge variant={loan.status === 'APPROVED' ? 'default' : loan.status === 'REJECTED' ? 'destructive' : loan.status === 'PAID' ? 'secondary' : 'outline'}>
+                              {loan.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            {loan.status === 'PENDING' && (
+                              <>
+                                <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleUpdateLoanStatus(loan.id, 'APPROVED')}>অনুমোদন</Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleUpdateLoanStatus(loan.id, 'REJECTED')}>বাতিল</Button>
+                              </>
+                            )}
+                            {loan.status === 'APPROVED' && (
+                              <Button size="sm" variant="outline" onClick={() => handleUpdateLoanStatus(loan.id, 'PAID')}>পরিশোধিত</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

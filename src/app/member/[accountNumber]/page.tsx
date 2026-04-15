@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard, Wallet } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -71,6 +71,14 @@ interface Contribution {
   description?: string
 }
 
+interface Loan {
+  id: string
+  amount: number
+  purpose: string
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID"
+  createdAt: string
+}
+
 const monthNames = {
   "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
   "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
@@ -111,6 +119,10 @@ export default function MemberDashboard() {
   const [formData, setFormData] = useState<Partial<Member>>({})
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [nomineeImageFile, setNomineeImageFile] = useState<File | null>(null)
+
+  const [loans, setLoans] = useState<Loan[]>([])
+  const [newLoan, setNewLoan] = useState({ amount: "", purpose: "" })
+  const [isApplyingLoan, setIsApplyingLoan] = useState(false)
 
   useEffect(() => {
     fetchMemberData()
@@ -153,11 +165,45 @@ export default function MemberDashboard() {
         setError("Member not found")
         router.push("/")
       }
+
+      const loansRes = await fetch('/api/loans')
+      if (loansRes.ok) {
+        const loansData = await loansRes.json()
+        setLoans(loansData)
+      }
     } catch (err) {
       setError("Network error occurred")
       router.push("/")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const applyForLoan = async () => {
+    if (!newLoan.amount || !newLoan.purpose) {
+      toast.error("সব তথ্য দিন")
+      return
+    }
+
+    try {
+      setIsApplyingLoan(true)
+      const response = await fetch("/api/loans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parseFloat(newLoan.amount), purpose: newLoan.purpose })
+      })
+
+      if (response.ok) {
+        toast.success("লোনের আবেদন সফল হয়েছে")
+        setNewLoan({ amount: "", purpose: "" })
+        fetchMemberData()
+      } else {
+        toast.error("আবেদন করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    } finally {
+      setIsApplyingLoan(false)
     }
   }
 
@@ -766,7 +812,7 @@ export default function MemberDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 gap-3 p-0 bg-transparent mb-8 h-auto">
+          <TabsList className="grid w-full grid-cols-3 gap-3 p-0 bg-transparent mb-8 h-auto">
             <TabsTrigger value="history" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-indigo-100 transition-all">
               <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
                 <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -778,6 +824,12 @@ export default function MemberDashboard() {
                 <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <span className="text-xs font-medium">প্রোফাইল</span>
+            </TabsTrigger>
+            <TabsTrigger value="loans" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-amber-100 transition-all">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+                <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-xs font-medium">লোন</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1115,6 +1167,61 @@ export default function MemberDashboard() {
                          <p className="text-sm text-muted-foreground">{member.nomineeNid || "তথ্য নেই"}</p>
                       </div>
                    </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="loans" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>নতুন লোনের আবেদন</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>পরিমাণ (টাকা)</Label>
+                  <Input
+                    type="number"
+                    value={newLoan.amount}
+                    onChange={(e) => setNewLoan({...newLoan, amount: e.target.value})}
+                    placeholder="উদাহরণ: 5000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>কারণ</Label>
+                  <Textarea
+                    value={newLoan.purpose}
+                    onChange={(e) => setNewLoan({...newLoan, purpose: e.target.value})}
+                    placeholder="লোন নেয়ার কারণ লিখুন"
+                  />
+                </div>
+                <Button onClick={applyForLoan} disabled={isApplyingLoan} className="w-full">
+                  {isApplyingLoan ? "আবেদন হচ্ছে..." : "আবেদন করুন"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>লোনের ইতিহাস</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {loans.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">কোনো লোনের রেকর্ড নেই</p>
+                  ) : (
+                    loans.map((loan) => (
+                      <div key={loan.id} className="flex justify-between items-center p-3 border rounded-lg">
+                        <div>
+                          <p className="font-semibold text-sm">৳{loan.amount}</p>
+                          <p className="text-xs text-gray-500">{loan.purpose}</p>
+                          <p className="text-xs text-gray-400 mt-1">{new Date(loan.createdAt).toLocaleDateString('bn-BD')}</p>
+                        </div>
+                        <Badge variant={loan.status === 'APPROVED' ? 'default' : loan.status === 'REJECTED' ? 'destructive' : 'secondary'}>
+                          {loan.status}
+                        </Badge>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
