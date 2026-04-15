@@ -352,14 +352,20 @@ export default function MemberDashboard() {
   const getDueDetails = () => {
     if (!member) return { dueMonths: 0, dueAmount: 0 }
 
-    // Calculate total expected months from Jan 2024 to current month
-    const startYear = 2024
-    const startMonth = 0 // January is 0
+    // Calculate total expected months from September 2025 to current month
+    const startYear = 2025
+    const startMonth = 8 // September is 8 (0-indexed)
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth()
 
-    const totalExpectedMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1
+    let totalExpectedMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1
+
+    // If the current date is before Sep 2025, expected months is 0
+    if (totalExpectedMonths < 0) {
+      totalExpectedMonths = 0
+    }
+
     const totalPaidMonths = member.contributions.length
 
     const dueMonths = Math.max(0, totalExpectedMonths - totalPaidMonths)
