@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 import { MemberCard } from "@/components/member-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -345,6 +347,25 @@ export default function MemberDashboard() {
     return member.contributions
       .filter(c => c.year === currentYear)
       .reduce((sum, contribution) => sum + contribution.amount, 0)
+  }
+
+  const getDueDetails = () => {
+    if (!member) return { dueMonths: 0, dueAmount: 0 }
+
+    // Calculate total expected months from Jan 2024 to current month
+    const startYear = 2024
+    const startMonth = 0 // January is 0
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth()
+
+    const totalExpectedMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1
+    const totalPaidMonths = member.contributions.length
+
+    const dueMonths = Math.max(0, totalExpectedMonths - totalPaidMonths)
+    const dueAmount = dueMonths * 1000
+
+    return { dueMonths, dueAmount }
   }
 
   const generatePDF = async () => {
@@ -775,6 +796,16 @@ export default function MemberDashboard() {
 
       <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
 
+        {/* Due Warning Alert */}
+        {getDueDetails().dueMonths > 2 && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+            <AlertCircle className="h-4 w-4" color="currentColor" />
+            <AlertDescription className="ml-2 font-medium">
+              দয়া করে আপনার বকেয়া (৳{getDueDetails().dueAmount}) পরিশোধ করুন অথবা আপনার একাউন্ট স্থগিত করা হবে।
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Member Card Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -809,6 +840,24 @@ export default function MemberDashboard() {
               </CardContent>
            </Card>
         </div>
+
+        {/* Due Card */}
+        {getDueDetails().dueAmount > 0 && (
+          <Card className="bg-white border-0 shadow-sm col-span-2 border-l-4 border-l-red-500">
+            <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                      <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                      <div className="text-sm font-semibold text-gray-900">মোট বকেয়া</div>
+                      <div className="text-xs text-muted-foreground">{getDueDetails().dueMonths} মাসের বকেয়া রয়েছে</div>
+                  </div>
+                </div>
+                <div className="text-xl font-bold text-red-600">৳{toBengaliNumber(getDueDetails().dueAmount)}</div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="history" className="w-full">
