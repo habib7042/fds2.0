@@ -84,7 +84,7 @@ export function MemberCard({ member }: MemberCardProps) {
       }
     } catch (err) {
       console.error(err)
-      toast.error("কার্ড ডাউনলোড করতে সমস্যা হয়েছে")
+      toast.error("কার্ড তৈরি করতে সমস্যা হয়েছে")
     }
   }
 

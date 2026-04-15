@@ -57,7 +57,6 @@ interface Member {
   nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
-  isActive?: boolean
   adjustments: Adjustment[]
 }
 
@@ -90,31 +89,6 @@ interface PollOption {
   }
 }
 
-interface Loan {
-  id: string
-  memberId: string
-  amount: number
-  reason: string
-  status: string
-  requestDate: string
-  approvedDate: string | null
-  paidDate: string | null
-  member: {
-    name: string
-    accountNumber: string
-    phone: string
-  }
-}
-
-interface Investment {
-  id: string
-  amount: number
-  description: string
-  date: string
-  status: string
-  returnDate: string | null
-}
-
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
@@ -127,10 +101,6 @@ export default function AdminDashboard() {
   const [showCreatePoll, setShowCreatePoll] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
-  const [loans, setLoans] = useState<Loan[]>([])
-  const [investments, setInvestments] = useState<Investment[]>([])
-  const [showAddInvestment, setShowAddInvestment] = useState(false)
-  const [newInvestment, setNewInvestment] = useState({ amount: '', description: '' })
   const router = useRouter()
 
   const [newMember, setNewMember] = useState({
@@ -170,33 +140,7 @@ export default function AdminDashboard() {
     fetchMembers()
     fetchPolls()
     fetchFundAdjustments()
-    fetchLoans()
-    fetchInvestments()
   }, [])
-
-  const fetchLoans = async () => {
-    try {
-      const res = await fetch("/api/admin/loans")
-      if (res.ok) {
-        const data = await res.json()
-        setLoans(data)
-      }
-    } catch (error) {
-      console.error("Failed to fetch loans:", error)
-    }
-  }
-
-  const fetchInvestments = async () => {
-    try {
-      const res = await fetch("/api/admin/investments")
-      if (res.ok) {
-        const data = await res.json()
-        setInvestments(data)
-      }
-    } catch (error) {
-      console.error("Failed to fetch investments:", error)
-    }
-  }
 
   useEffect(() => {
     if (searchQuery) {
@@ -264,57 +208,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleAddInvestment = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const res = await fetch("/api/admin/investments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newInvestment)
-      })
-      if (res.ok) {
-        setShowAddInvestment(false)
-        setNewInvestment({ amount: '', description: '' })
-        fetchInvestments()
-      } else {
-        alert("বিনিয়োগ যুক্ত করতে সমস্যা হয়েছে")
-      }
-    } catch (error) {
-      console.error(error)
-      alert("Something went wrong")
-    }
-  }
-
-  const handleReturnInvestment = async (id: string) => {
-    try {
-      const res = await fetch(`/api/admin/investments/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "RETURNED" })
-      })
-      if (res.ok) {
-        fetchInvestments()
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }
-
-  const handleUpdateLoanStatus = async (id: string, status: string) => {
-    try {
-      const res = await fetch(`/api/admin/loans/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status })
-      })
-      if (res.ok) {
-        fetchLoans()
-      }
-    } catch (error) {
-      console.error(error)
-    }
-  }
-
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
@@ -338,30 +231,6 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError("Network error occurred")
-    }
-  }
-
-
-  const handleToggleMemberStatus = async (memberId: string, currentStatus: boolean) => {
-    try {
-      const token = localStorage.getItem("adminToken")
-      const response = await fetch(`/api/admin/members/${memberId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ isActive: !currentStatus })
-      })
-
-      if (response.ok) {
-        toast.success(currentStatus ? "সদস্যপদ স্থগিত করা হয়েছে" : "সদস্যপদ সক্রিয় করা হয়েছে")
-        fetchMembers()
-      } else {
-        toast.error("স্ট্যাটাস পরিবর্তন করতে ব্যর্থ")
-      }
-    } catch (err) {
-      toast.error("Network error occurred")
     }
   }
 
@@ -541,15 +410,7 @@ export default function AdminDashboard() {
         }, 0)
     }, 0);
 
-    const activeInvestments = investments.reduce((sum, inv) => {
-      return inv.status === 'ACTIVE' ? sum + inv.amount : sum
-    }, 0)
-
-    const approvedLoans = loans.reduce((sum, loan) => {
-      return (loan.status === 'APPROVED') ? sum + loan.amount : sum
-    }, 0)
-
-    return contributions + globalAdjustments + personalAdjustments - activeInvestments - approvedLoans;
+    return contributions + globalAdjustments + personalAdjustments;
   }
 
   const getMonthlyData = () => {
@@ -954,9 +815,9 @@ export default function AdminDashboard() {
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20 md:pb-8">
+    <div className="min-h-screen bg-background pb-20 md:pb-8">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b card/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 shadow-sm">
+      <div className="md:hidden flex items-center justify-between p-4 border-b bg-background sticky top-0 z-20">
         <div className="font-bold text-lg">অ্যাডমিন প্যানেল</div>
         <Sheet>
           <SheetTrigger asChild>
@@ -986,16 +847,16 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center card/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800">
+        <div className="hidden md:flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">অ্যাডমিন ড্যাশবোর্ড</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-800">অ্যাডমিন ড্যাশবোর্ড</h1>
             <p className="text-gray-500">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={() => setShowAddMember(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm hover:shadow transition-all">
+            <Button onClick={() => setShowAddMember(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
               <UserPlus className="mr-2 h-4 w-4" /> সদস্য যোগ
             </Button>
-            <Button onClick={() => setShowAddContribution(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm hover:shadow transition-all">
+            <Button onClick={() => setShowAddContribution(true)} className="bg-green-600 hover:bg-green-700 text-white">
               <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
             </Button>
             <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50">
@@ -1016,57 +877,51 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-blue-500 to-blue-600 text-white group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <CardTitle className="text-sm font-medium text-blue-50/90 z-10 relative">মোট সদস্য</CardTitle>
-              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Users className="h-5 w-5 text-white" /></div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(members.length)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Users className="h-24 w-24" /></div>
-
-                      </CardContent>
-                    </Card>
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-emerald-500 to-emerald-600 text-white group">
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-white to-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-emerald-50/90 z-10 relative">মোট তহবিল</CardTitle>
-              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Wallet className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-blue-700">মোট সদস্য</CardTitle>
+              <Users className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Wallet className="h-24 w-24" /></div>
-
-                      </CardContent>
-                    </Card>
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-purple-500 to-purple-600 text-white group">
+              <div className="text-2xl font-bold text-blue-900">{toBengaliNumber(members.length)}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-white to-green-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-50/90 z-10 relative">জমা (চলতি মাস)</CardTitle>
-              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><TrendingUp className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-green-700">মোট তহবিল</CardTitle>
+              <Wallet className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><TrendingUp className="h-24 w-24" /></div>
-
-                      </CardContent>
-                    </Card>
-           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-rose-500 to-rose-600 text-white group">
+              <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-white to-purple-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-rose-50/90 z-10 relative">বকেয়া সদস্য</CardTitle>
-              <div className="p-2 card/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><AlertCircle className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-purple-700">জমা (চলতি মাস)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><AlertCircle className="h-24 w-24" /></div>
-
-                      </CardContent>
-                    </Card>
+              <div className="text-2xl font-bold text-purple-900">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div>
+            </CardContent>
+          </Card>
+           <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-white to-red-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-red-700">বকেয়া সদস্য</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7 lg:w-[700px] p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl">
+          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
             <TabsTrigger value="members">সদস্য</TabsTrigger>
             <TabsTrigger value="payments">হিসাব</TabsTrigger>
             <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
             <TabsTrigger value="polls">পোলস</TabsTrigger>
             <TabsTrigger value="financials">অর্থ</TabsTrigger>
-            <TabsTrigger value="investments">বিনিয়োগ</TabsTrigger>
-            <TabsTrigger value="loans">লোন</TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -1090,7 +945,7 @@ export default function AdminDashboard() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Card className="hover:shadow-xl transition-all duration-300 border-slate-200/60 hover:border-blue-200 card/80 backdrop-blur-sm group">
+                    <Card className="hover:shadow-md transition-shadow">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-3">
                            <Avatar className="h-10 w-10">
@@ -1101,24 +956,8 @@ export default function AdminDashboard() {
                               <CardTitle className="text-sm font-medium">
                                  {member.name}
                               </CardTitle>
-                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] py-0">{toBengaliNumber(member.accountNumber)}</Badge>
+                              <Badge variant="outline">{toBengaliNumber(member.accountNumber)}</Badge>
                            </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                           <Badge variant={member.isActive !== false ? "default" : "destructive"} className="text-[10px] uppercase font-bold tracking-wider rounded-full shadow-sm">
-                             {member.isActive !== false ? "Active" : "Suspended"}
-                           </Badge>
-                           <Button
-                             variant="outline"
-                             size="sm"
-                             className={`w-full text-xs h-7 ${member.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               handleToggleMemberStatus(member.id, member.isActive ?? true);
-                             }}
-                           >
-                             {member.isActive !== false ? 'স্থগিত করুন' : 'সক্রিয় করুন'}
-                           </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -1150,7 +989,6 @@ export default function AdminDashboard() {
                              </div>
                           </div>
                         </div>
-
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -1188,8 +1026,8 @@ export default function AdminDashboard() {
                </div>
               </CardHeader>
               <CardContent className="overflow-auto">
-                <Table className="border-collapse">
-                  <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+                <Table>
+                  <TableHeader>
                     <TableRow>
                       <TableHead className="w-[200px]">সদস্য</TableHead>
                       {getFilteredMonths().map(m => (
@@ -1199,7 +1037,7 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {members.map(member => (
-                      <TableRow key={member.id} className="hover:bg-background/80 dark:hover:bg-slate-800/50 transition-colors">
+                      <TableRow key={member.id}>
                         <TableCell className="font-medium">
                            <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
@@ -1208,24 +1046,8 @@ export default function AdminDashboard() {
                               </Avatar>
                               <div>
                                  <div className="text-sm">{member.name}</div>
-                                                                  <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
+                                 <div className="text-xs text-muted-foreground">{toBengaliNumber(member.accountNumber)}</div>
                               </div>
-                           </div>
-                           <div className="mt-2 flex items-center gap-2">
-                             <Badge variant={member.isActive !== false ? "default" : "destructive"} className="text-[10px] uppercase font-bold tracking-wider rounded-full shadow-sm">
-                               {member.isActive !== false ? "Active" : "Suspended"}
-                             </Badge>
-                             <Button
-                               variant="outline"
-                               size="sm"
-                               className={`text-xs h-6 px-2 py-0 ${member.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 handleToggleMemberStatus(member.id, member.isActive ?? true);
-                               }}
-                             >
-                               {member.isActive !== false ? 'স্থগিত করুন' : 'সক্রিয় করুন'}
-                             </Button>
                            </div>
                         </TableCell>
                         {getFilteredMonths().map(m => {
@@ -1343,9 +1165,8 @@ export default function AdminDashboard() {
                         </Button>
                       )}
                     </div>
-
-                      </CardContent>
-                    </Card>
+                  </CardContent>
+                </Card>
               ))}
               {polls.length === 0 && (
                 <div className="col-span-2 text-center py-10 text-muted-foreground">
@@ -1451,144 +1272,6 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </TabsContent>
-
-          <TabsContent value="investments" className="space-y-4">
-             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-medium">বিনিয়োগ তালিকা</h3>
-                <Button onClick={() => setShowAddInvestment(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">নতুন বিনিয়োগ</Button>
-             </div>
-
-             {showAddInvestment && (
-               <Card className="mb-4">
-                 <CardHeader>
-                   <CardTitle>নতুন বিনিয়োগ যুক্ত করুন</CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <form onSubmit={handleAddInvestment} className="space-y-4">
-                     <div className="grid grid-cols-2 gap-4">
-                       <div className="space-y-2">
-                         <Label>টাকার পরিমাণ</Label>
-                         <Input type="number" required value={newInvestment.amount} onChange={e => setNewInvestment({...newInvestment, amount: e.target.value})} placeholder="পরিমাণ" />
-                       </div>
-                       <div className="space-y-2">
-                         <Label>বিবরণ</Label>
-                         <Input required value={newInvestment.description} onChange={e => setNewInvestment({...newInvestment, description: e.target.value})} placeholder="কোথায় বিনিয়োগ করা হচ্ছে" />
-                       </div>
-                     </div>
-                     <div className="flex gap-2">
-                       <Button type="submit">যুক্ত করুন</Button>
-                       <Button type="button" variant="outline" onClick={() => setShowAddInvestment(false)}>বাতিল</Button>
-                     </div>
-                   </form>
-                 </CardContent>
-               </Card>
-             )}
-
-             <Card>
-               <CardContent className="p-0">
-                 <Table>
-                   <TableHeader>
-                     <TableRow>
-                       <TableHead>তারিখ</TableHead>
-                       <TableHead>বিবরণ</TableHead>
-                       <TableHead className="text-right">পরিমাণ</TableHead>
-                       <TableHead>স্ট্যাটাস</TableHead>
-                       <TableHead className="text-right">অ্যাকশন</TableHead>
-                     </TableRow>
-                   </TableHeader>
-                   <TableBody>
-                     {investments.map(inv => (
-                       <TableRow key={inv.id}>
-                         <TableCell>{new Date(inv.date).toLocaleDateString('bn-BD')}</TableCell>
-                         <TableCell>{inv.description}</TableCell>
-                         <TableCell className="text-right">৳{toBengaliNumber(inv.amount)}</TableCell>
-                         <TableCell>
-                           <Badge variant={inv.status === 'ACTIVE' ? 'default' : 'secondary'}>
-                             {inv.status === 'ACTIVE' ? 'চলমান' : 'ফেরত'}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-right">
-                           {inv.status === 'ACTIVE' && (
-                             <Button variant="outline" size="sm" onClick={() => handleReturnInvestment(inv.id)}>
-                               ফেরত নিন
-                             </Button>
-                           )}
-                           {inv.status === 'RETURNED' && inv.returnDate && (
-                             <span className="text-xs text-muted-foreground">ফেরত: {new Date(inv.returnDate).toLocaleDateString('bn-BD')}</span>
-                           )}
-                         </TableCell>
-                       </TableRow>
-                     ))}
-                     {investments.length === 0 && (
-                       <TableRow>
-                         <TableCell colSpan={5} className="text-center text-muted-foreground py-8">কোনো বিনিয়োগ নেই</TableCell>
-                       </TableRow>
-                     )}
-                   </TableBody>
-                 </Table>
-               </CardContent>
-             </Card>
-          </TabsContent>
-
-          <TabsContent value="loans" className="space-y-4">
-             <h3 className="text-lg font-medium">লোন অনুরোধসমূহ</h3>
-             <Card>
-               <CardContent className="p-0">
-                 <Table>
-                   <TableHeader>
-                     <TableRow>
-                       <TableHead>সদস্য</TableHead>
-                       <TableHead>তারিখ</TableHead>
-                       <TableHead className="text-right">পরিমাণ</TableHead>
-                       <TableHead>কারণ</TableHead>
-                       <TableHead>স্ট্যাটাস</TableHead>
-                       <TableHead className="text-right">অ্যাকশন</TableHead>
-                     </TableRow>
-                   </TableHeader>
-                   <TableBody>
-                     {loans.map(loan => (
-                       <TableRow key={loan.id}>
-                         <TableCell>
-                           {loan.member.name}<br/>
-                           <span className="text-xs text-muted-foreground">{loan.member.phone}</span>
-                         </TableCell>
-                         <TableCell>{new Date(loan.requestDate).toLocaleDateString('bn-BD')}</TableCell>
-                         <TableCell className="text-right">৳{toBengaliNumber(loan.amount)}</TableCell>
-                         <TableCell>{loan.reason}</TableCell>
-                         <TableCell>
-                           <Badge variant={
-                             loan.status === 'APPROVED' ? 'default' :
-                             loan.status === 'REJECTED' ? 'destructive' :
-                             loan.status === 'PAID' ? 'secondary' : 'outline'
-                           }>
-                             {loan.status === 'PENDING' ? 'অপেক্ষমান' :
-                              loan.status === 'APPROVED' ? 'অনুমোদিত' :
-                              loan.status === 'REJECTED' ? 'বাতিল' : 'পরিশোধিত'}
-                           </Badge>
-                         </TableCell>
-                         <TableCell className="text-right space-x-2">
-                           {loan.status === 'PENDING' && (
-                             <>
-                               <Button variant="default" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'APPROVED')}>অনুমোদন</Button>
-                               <Button variant="destructive" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'REJECTED')}>বাতিল</Button>
-                             </>
-                           )}
-                           {loan.status === 'APPROVED' && (
-                              <Button variant="outline" size="sm" onClick={() => handleUpdateLoanStatus(loan.id, 'PAID')}>পরিশোধিত</Button>
-                           )}
-                         </TableCell>
-                       </TableRow>
-                     ))}
-                     {loans.length === 0 && (
-                       <TableRow>
-                         <TableCell colSpan={6} className="text-center text-muted-foreground py-8">কোনো লোন নেই</TableCell>
-                       </TableRow>
-                     )}
-                   </TableBody>
-                 </Table>
-               </CardContent>
-             </Card>
-          </TabsContent>
         </Tabs>
       </div>
 
@@ -1631,7 +1314,7 @@ export default function AdminDashboard() {
               <Select onValueChange={v => setNewContribution({...newContribution, memberId: v})}>
                 <SelectTrigger><SelectValue placeholder="সদস্য নির্বাচন করুন" /></SelectTrigger>
                 <SelectContent>
-                  {members.filter(m => m.isActive).map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.accountNumber})</SelectItem>)}
+                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.accountNumber})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

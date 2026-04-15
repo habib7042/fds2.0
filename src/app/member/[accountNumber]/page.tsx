@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard, AlertCircle } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -92,24 +92,11 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-interface Loan {
-  id: string
-  amount: number
-  reason: string
-  status: string
-  requestDate: string
-  approvedDate: string | null
-  paidDate: string | null
-}
-
 export default function MemberDashboard() {
   const [member, setMember] = useState<Member | null>(null)
-  const [loans, setLoans] = useState<Loan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [generatingPDF, setGeneratingPDF] = useState(false)
-  const [showLoanRequest, setShowLoanRequest] = useState(false)
-  const [newLoan, setNewLoan] = useState({ amount: '', reason: '' })
   const [isEditing, setIsEditing] = useState(false)
   const [isChangingPin, setIsChangingPin] = useState(false)
   const [newPin, setNewPin] = useState("")
@@ -127,20 +114,7 @@ export default function MemberDashboard() {
 
   useEffect(() => {
     fetchMemberData()
-    fetchLoans()
   }, [accountNumber])
-
-  const fetchLoans = async () => {
-    try {
-      const res = await fetch(`/api/member/${accountNumber}/loans`)
-      if (res.ok) {
-        const data = await res.json()
-        setLoans(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch loans:", err)
-    }
-  }
 
   useEffect(() => {
     if (member) {
@@ -169,28 +143,6 @@ export default function MemberDashboard() {
     }
   }, [])
 
-  const handleLoanRequest = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const res = await fetch(`/api/member/${accountNumber}/loans`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newLoan)
-      })
-      if (res.ok) {
-        setShowLoanRequest(false)
-        setNewLoan({ amount: '', reason: '' })
-        fetchLoans()
-        alert("লোনের আবেদন সফলভাবে পাঠানো হয়েছে।")
-      } else {
-        alert("লোনের আবেদন পাঠাতে সমস্যা হয়েছে।")
-      }
-    } catch (err) {
-      console.error(err)
-      alert("Something went wrong")
-    }
-  }
-
   const fetchMemberData = async () => {
     try {
       const response = await fetch(`/api/member/${accountNumber}`)
@@ -212,41 +164,6 @@ export default function MemberDashboard() {
   const handleLogout = () => {
     localStorage.removeItem("memberAccount")
     router.push("/")
-  }
-
-  const handleDownloadCalendarReminder = () => {
-    // Generate dates for Google Calendar URL format
-    const now = new Date()
-    // Find the next 10th of the month
-    let nextTenth = new Date(now.getFullYear(), now.getMonth(), 10, 9, 0, 0)
-    if (now.getDate() > 10) {
-      nextTenth = new Date(now.getFullYear(), now.getMonth() + 1, 10, 9, 0, 0)
-    }
-
-    const formatDateForGcal = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '')
-    const startTime = formatDateForGcal(nextTenth)
-
-    // Add 1 hour for end time
-    const endTimeObj = new Date(nextTenth.getTime() + 60 * 60 * 1000)
-    const endTime = formatDateForGcal(endTimeObj)
-
-    // Create Google Calendar Link for recurring event (Monthly on the 10th)
-    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=FDS+Monthly+Deposit+Reminder&details=Please+remember+to+make+your+monthly+deposit+to+the+Friends+Development+Society.&dates=${startTime}/${endTime}&recur=RRULE:FREQ=MONTHLY;BYMONTHDAY=10`
-
-    // Check if device is iOS (Apple devices handle ICS well via data URI)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    if (isIOS) {
-       // Create ICS for Apple devices which nicely opens the Calendar app
-       const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//FDS//Monthly Deposit Reminder//EN\nBEGIN:VEVENT\nSUMMARY:FDS Monthly Deposit Reminder\nDESCRIPTION:Please remember to make your monthly deposit to the Friends Development Society.\nRRULE:FREQ=MONTHLY;BYMONTHDAY=10\nDTSTART:${startTime}\nDTEND:${endTime}\nDTSTAMP:${formatDateForGcal(now)}\nUID:fds-reminder-${now.getTime()}@fds.com\nEND:VEVENT\nEND:VCALENDAR`;
-       const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
-       window.location.href = dataUri;
-       toast.success("ক্যালেন্ডারে রিমাইন্ডার যোগ করা হচ্ছে")
-    } else {
-       // For Android and others, Google Calendar link is much more reliable
-       window.open(gcalUrl, '_blank')
-       toast.success("গুগল ক্যালেন্ডারে রিমাইন্ডার যোগ করুন")
-    }
   }
 
   const handleSubscribe = async () => {
@@ -359,44 +276,6 @@ export default function MemberDashboard() {
   const getMonthName = (month: string) => {
     return monthNames[month as keyof typeof monthNames] || month
   }
-
-
-  // Calculate Due Info
-  const calculateDue = () => {
-    if (!member) return { months: 0, amount: 0, status: 'No Due' };
-
-    const joinDate = new Date(member.createdAt);
-    const currentDate = new Date();
-
-    let totalMonths = (currentDate.getFullYear() - joinDate.getFullYear()) * 12;
-    totalMonths -= joinDate.getMonth();
-    totalMonths += currentDate.getMonth() + 1; // Include current month
-
-    // Stop accruing dues if inactive. This requires knowing WHEN they became inactive,
-    // but without tracking that, we can assume if inactive, dues don't increment from now.
-    // If they are inactive, we ideally stop at updatedAt, but to keep it simple, we just use current date or their last update.
-    if (member.isActive === false) {
-      const updateDate = new Date(member.updatedAt);
-      totalMonths = (updateDate.getFullYear() - joinDate.getFullYear()) * 12;
-      totalMonths -= joinDate.getMonth();
-      totalMonths += updateDate.getMonth() + 1;
-    }
-
-    if (totalMonths <= 0) totalMonths = 1;
-
-    const expectedContribution = totalMonths * 1000;
-    const paidContribution = member.contributions.reduce((sum, c) => sum + c.amount, 0);
-
-    const dueAmount = expectedContribution - paidContribution;
-    const dueMonths = Math.ceil(dueAmount / 1000);
-
-    return {
-      months: dueMonths > 0 ? dueMonths : 0,
-      amount: dueAmount > 0 ? dueAmount : 0,
-    };
-  };
-
-  const dueInfo = calculateDue();
 
   const getTotalBalance = () => {
     if (!member) return 0
@@ -807,13 +686,9 @@ export default function MemberDashboard() {
   if (!member) return null
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-8 relative overflow-hidden">
-      {/* Subtle modern background elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-500/10 rounded-full blur-[100px] pointer-events-none" />
-
+    <div className="min-h-screen bg-gray-50/50 pb-20 md:pb-8">
       {/* Modern Profile Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white backdrop-blur-md bg-opacity-90 border-b border-white/10">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white">
          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <Avatar className="h-9 w-9 border-2 border-white/30">
@@ -854,21 +729,6 @@ export default function MemberDashboard() {
 
       <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
 
-
-        {/* Inactive Member Warning */}
-        {member.isActive === false && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-rose-50 border border-rose-200 text-rose-600 p-4 rounded-xl flex items-center gap-3 shadow-sm"
-          >
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <div className="text-sm font-medium leading-relaxed">
-              আপনার সদস্যপদ স্থগিত করা হয়েছে। নতুন কোনো চাঁদা যোগ করা যাবে না। তবে আপনার জমাকৃত টাকা ও হিসাব সুরক্ষিত আছে।
-            </div>
-          </motion.div>
-        )}
-
         {/* Member Card Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -878,82 +738,47 @@ export default function MemberDashboard() {
            <MemberCard member={{ name: member.name, accountNumber: member.accountNumber, balance: getTotalBalance() }} />
         </motion.div>
 
-
         {/* Quick Actions / Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
-           {dueInfo.amount > 0 && (
-             <motion.div
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               className="col-span-2 md:col-span-3 bg-gradient-to-br from-rose-50 to-red-50 dark:from-rose-950/40 dark:to-red-950/40 border border-rose-200 dark:border-rose-800 shadow-md rounded-2xl overflow-hidden"
-             >
-                <div className="p-4 flex items-center justify-between">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/50 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
-                         <AlertCircle className="h-6 w-6" />
-                      </div>
-                      <div>
-                         <div className="text-2xl font-black text-rose-700 dark:text-rose-400 drop-shadow-sm">৳{toBengaliNumber(dueInfo.amount)}</div>
-                         <div className="text-sm text-rose-600/80 dark:text-rose-400/80 font-semibold tracking-wide">মোট বকেয়া ({toBengaliNumber(dueInfo.months)} মাস)</div>
-                      </div>
-                   </div>
-                   <Badge variant="destructive" className="bg-rose-500 hover:bg-rose-600 shadow-sm border-0 font-medium px-3 py-1">বকেয়া</Badge>
-                </div>
-             </motion.div>
-           )}
-
-           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }}>
-             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden group">
-                <CardContent className="p-5 flex flex-col items-center justify-center text-center gap-3 relative">
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                      <DollarSign className="h-6 w-6" />
-                   </div>
-                   <div>
-                      <div className="text-2xl font-black text-foreground tracking-tight drop-shadow-sm">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">বর্তমান স্থিতি</div>
-                   </div>
-                </CardContent>
-             </Card>
-           </motion.div>
-
-           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }}>
-             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl overflow-hidden group">
-                <CardContent className="p-5 flex flex-col items-center justify-center text-center gap-3 relative">
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                      <Calendar className="h-6 w-6" />
-                   </div>
-                   <div>
-                      <div className="text-2xl font-black text-foreground tracking-tight drop-shadow-sm">৳{toBengaliNumber(getCurrentYearContributions())}</div>
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">চলতি বছর</div>
-                   </div>
-                </CardContent>
-             </Card>
-           </motion.div>
-
-           <motion.div whileHover={{ y: -2 }} transition={{ type: "spring", stiffness: 300 }} className="col-span-2 md:col-span-1">
-             <Card className="border-0 shadow-sm bg-white/60 dark:bg-zinc-900/60 backdrop-blur-xl hover:shadow-md transition-all duration-300 rounded-2xl cursor-pointer overflow-hidden group" onClick={handleDownloadCalendarReminder}>
-                <CardContent className="p-5 flex flex-row md:flex-col items-center justify-center text-center gap-4 md:gap-3 relative">
-                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/40 dark:to-orange-900/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-inner group-hover:scale-110 transition-transform duration-300">
-                      <Bell className="h-6 w-6" />
-                   </div>
-                   <div className="text-left md:text-center">
-                      <div className="text-lg md:text-xl font-black text-foreground drop-shadow-sm">রিমাইন্ডার সেট</div>
-                      <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">মাসিক চাঁদা</div>
-                   </div>
-                </CardContent>
-             </Card>
-           </motion.div>
+        <div className="grid grid-cols-2 gap-3">
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <DollarSign className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getTotalBalance().toFixed(0))}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">বর্তমান স্থিতি</div>
+                 </div>
+              </CardContent>
+           </Card>
+           <Card className="bg-white border-0 shadow-sm">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
+                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Calendar className="h-5 w-5" />
+                 </div>
+                 <div>
+                    <div className="text-xl font-bold text-gray-900">৳{toBengaliNumber(getCurrentYearContributions())}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">চলতি বছর</div>
+                 </div>
+              </CardContent>
+           </Card>
         </div>
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 p-1.5 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-xl">
-            <TabsTrigger value="history" className="rounded-lg text-xs font-medium">লেনদেন</TabsTrigger>
-            <TabsTrigger value="profile" className="rounded-lg text-xs font-medium">প্রোফাইল</TabsTrigger>
-            <TabsTrigger value="loans" className="rounded-lg text-xs font-medium">লোন</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 gap-3 p-0 bg-transparent mb-8 h-auto">
+            <TabsTrigger value="history" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-indigo-100 transition-all">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
+                <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <span className="text-xs font-medium">লেনদেন</span>
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-purple-100 transition-all">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full">
+                <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="text-xs font-medium">প্রোফাইল</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="history" className="space-y-4 min-h-[300px]">
@@ -1037,9 +862,23 @@ export default function MemberDashboard() {
 
           <TabsContent value="profile">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between space-y-0 pb-4">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const today = new Date();
+                    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 10);
+                    const startDate = nextMonth.toISOString().replace(/-|:|\.\d\d\d/g, "");
+                    const endDate = new Date(nextMonth.getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
+                    const title = encodeURIComponent("FDS Monthly Deposit Reminder");
+                    const details = encodeURIComponent("Reminder to deposit monthly 1000 Taka to FDS account.");
+                    const rule = "FREQ=MONTHLY;BYMONTHDAY=10";
+                    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&recur=${rule}`;
+                    window.open(googleCalendarUrl, "_blank");
+                  }}>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    রিমাইন্ডার সেট করুন
+                  </Button>
                   <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
@@ -1279,65 +1118,6 @@ export default function MemberDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="loans" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">আমার লোনসমূহ</h3>
-              <Button onClick={() => setShowLoanRequest(!showLoanRequest)} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                {showLoanRequest ? "বাতিল করুন" : "নতুন আবেদন"}
-              </Button>
-            </div>
-
-            {showLoanRequest && (
-              <Card className="mb-4">
-                <CardContent className="pt-6">
-                  <form onSubmit={handleLoanRequest} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>টাকার পরিমাণ</Label>
-                      <Input type="number" required value={newLoan.amount} onChange={e => setNewLoan({...newLoan, amount: e.target.value})} placeholder="পরিমাণ" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>লোন নেওয়ার কারণ</Label>
-                      <Input required value={newLoan.reason} onChange={e => setNewLoan({...newLoan, reason: e.target.value})} placeholder="কারণ উল্লেখ করুন" />
-                    </div>
-                    <Button type="submit" className="w-full">আবেদন জমা দিন</Button>
-                  </form>
-                </CardContent>
-              </Card>
-            )}
-
-            <div className="space-y-4">
-              {loans.map(loan => (
-                <Card key={loan.id} className="overflow-hidden">
-                  <div className="p-4 border-l-4" style={{ borderColor: loan.status === 'APPROVED' ? '#16a34a' : loan.status === 'REJECTED' ? '#dc2626' : loan.status === 'PAID' ? '#94a3b8' : '#eab308' }}>
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-medium text-lg">৳{toBengaliNumber(loan.amount)}</h4>
-                        <p className="text-sm text-muted-foreground">{loan.reason}</p>
-                      </div>
-                      <Badge variant={
-                         loan.status === 'APPROVED' ? 'default' :
-                         loan.status === 'REJECTED' ? 'destructive' :
-                         loan.status === 'PAID' ? 'secondary' : 'outline'
-                      }>
-                         {loan.status === 'PENDING' ? 'অপেক্ষমান' :
-                          loan.status === 'APPROVED' ? 'অনুমোদিত' :
-                          loan.status === 'REJECTED' ? 'বাতিল' : 'পরিশোধিত'}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      আবেদনের তারিখ: {new Date(loan.requestDate).toLocaleDateString('bn-BD')}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-              {loans.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground bg-white/50 rounded-xl">
-                  কোনো লোনের তথ্য পাওয়া যায়নি
-                </div>
-              )}
-            </div>
           </TabsContent>
         </Tabs>
       </main>
