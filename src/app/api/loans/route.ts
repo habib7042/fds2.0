@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import * as jose from "jose"
 
 const jwtSecret = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback_secret_for_development_only"
+  process.env.JWT_SECRET || 'default_secret_key_change_me'
 )
 
 async function getMemberIdFromToken(request: NextRequest) {

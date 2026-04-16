@@ -352,24 +352,41 @@ export default function MemberDashboard() {
   const getDueDetails = () => {
     if (!member) return { dueMonths: 0, dueAmount: 0 }
 
-    // Calculate total expected months from September 2025 to current month
-    const startYear = 2025
-    const startMonth = 8 // September is 8 (0-indexed)
     const now = new Date()
     const currentYear = now.getFullYear()
-    const currentMonth = now.getMonth()
+    const currentMonth = now.getMonth() // 0-indexed (0=Jan, 8=Sep)
+    const currentDay = now.getDate()
 
-    let totalExpectedMonths = (currentYear - startYear) * 12 + (currentMonth - startMonth) + 1
+    let expectedAmount = 0
+    let expectedMonths = 0
 
-    // If the current date is before Sep 2025, expected months is 0
-    if (totalExpectedMonths < 0) {
-      totalExpectedMonths = 0
+    // Loop from September 2025 to the "current" calculation month
+    // We stop adding if we haven't reached the month/year yet
+    // Or if we are in the current month but it's before the 10th
+    for (let y = 2025; y <= currentYear; y++) {
+      let mStart = (y === 2025) ? 8 : 0 // Start from Sep in 2025
+      let mEnd = 11
+
+      if (y === currentYear) {
+        // If before the 10th, don't count current month as due yet
+        mEnd = currentDay >= 10 ? currentMonth : currentMonth - 1
+      }
+
+      for (let m = mStart; m <= mEnd; m++) {
+        expectedMonths++
+        if (y === 2025) {
+          expectedAmount += 500
+        } else {
+          expectedAmount += 1000
+        }
+      }
     }
 
+    const totalPaidAmount = member.contributions.reduce((sum, c) => sum + c.amount, 0)
     const totalPaidMonths = member.contributions.length
 
-    const dueMonths = Math.max(0, totalExpectedMonths - totalPaidMonths)
-    const dueAmount = dueMonths * 1000
+    const dueMonths = Math.max(0, expectedMonths - totalPaidMonths)
+    const dueAmount = Math.max(0, expectedAmount - totalPaidAmount)
 
     return { dueMonths, dueAmount }
   }
@@ -857,7 +874,9 @@ export default function MemberDashboard() {
                   </div>
                   <div>
                       <div className="text-sm font-semibold text-gray-900">মোট বকেয়া</div>
-                      <div className="text-xs text-muted-foreground">{getDueDetails().dueMonths} মাসের বকেয়া রয়েছে</div>
+                      {getDueDetails().dueMonths > 0 && (
+                        <div className="text-xs text-muted-foreground">{getDueDetails().dueMonths} মাসের বকেয়া রয়েছে</div>
+                      )}
                   </div>
                 </div>
                 <div className="text-xl font-bold text-red-600">৳{toBengaliNumber(getDueDetails().dueAmount)}</div>
