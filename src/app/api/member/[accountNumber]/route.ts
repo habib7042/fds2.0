@@ -10,6 +10,12 @@ export async function GET(
     const { accountNumber } = await params
     console.log(`API Member Lookup: ${accountNumber}`)
 
+    // Authenticate request
+    const isAuthorized = await verifyMemberSession(request, accountNumber)
+    if (!isAuthorized) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     if (!accountNumber || accountNumber.length !== 4) {
       return NextResponse.json(
         { error: "Invalid account number" },
@@ -69,12 +75,35 @@ export async function GET(
   }
 }
 
+import * as jose from "jose"
+
+const jwtSecret = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'default_secret_key_change_me'
+)
+
+async function verifyMemberSession(request: NextRequest, targetAccountNumber: string) {
+  const cookie = request.cookies.get("member_session")?.value
+  if (!cookie) return false
+  try {
+    const { payload } = await jose.jwtVerify(cookie, jwtSecret)
+    return payload.accountNumber === targetAccountNumber
+  } catch {
+    return false
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ accountNumber: string }> }
 ) {
   try {
     const { accountNumber } = await params
+
+    // Authenticate request
+    const isAuthorized = await verifyMemberSession(request, accountNumber)
+    if (!isAuthorized) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     // Check if content-type is multipart/form-data
     const contentType = request.headers.get("content-type") || ""

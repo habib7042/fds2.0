@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard } from "lucide-react"
+import { LogOut, Download, Calendar, DollarSign, User, Phone, Mail, MapPin, Edit, FileText, Heart, UserPlus, Image as ImageIcon, MessageSquare, Bell, Lock, CheckCircle2, MoreVertical, CreditCard, Wallet } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Keypad } from "@/components/ui/keypad"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 import { MemberCard } from "@/components/member-card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
@@ -71,6 +73,14 @@ interface Contribution {
   description?: string
 }
 
+interface Loan {
+  id: string
+  amount: number
+  purpose: string
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID"
+  createdAt: string
+}
+
 const monthNames = {
   "01": "জানুয়ারি", "02": "ফেব্রুয়ারি", "03": "মার্চ", "04": "এপ্রিল",
   "05": "মে", "06": "জুন", "07": "জুলাই", "08": "আগস্ট",
@@ -111,6 +121,10 @@ export default function MemberDashboard() {
   const [formData, setFormData] = useState<Partial<Member>>({})
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
   const [nomineeImageFile, setNomineeImageFile] = useState<File | null>(null)
+
+  const [loans, setLoans] = useState<Loan[]>([])
+  const [newLoan, setNewLoan] = useState({ amount: "", purpose: "" })
+  const [isApplyingLoan, setIsApplyingLoan] = useState(false)
 
   useEffect(() => {
     fetchMemberData()
@@ -153,6 +167,12 @@ export default function MemberDashboard() {
         setError("Member not found")
         router.push("/")
       }
+
+      const loansRes = await fetch('/api/loans')
+      if (loansRes.ok) {
+        const loansData = await loansRes.json()
+        setLoans(loansData)
+      }
     } catch (err) {
       setError("Network error occurred")
       router.push("/")
@@ -161,34 +181,37 @@ export default function MemberDashboard() {
     }
   }
 
+  const applyForLoan = async () => {
+    if (!newLoan.amount || !newLoan.purpose) {
+      toast.error("সব তথ্য দিন")
+      return
+    }
+
+    try {
+      setIsApplyingLoan(true)
+      const response = await fetch("/api/loans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: parseFloat(newLoan.amount), purpose: newLoan.purpose })
+      })
+
+      if (response.ok) {
+        toast.success("লোনের আবেদন সফল হয়েছে")
+        setNewLoan({ amount: "", purpose: "" })
+        fetchMemberData()
+      } else {
+        toast.error("আবেদন করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    } finally {
+      setIsApplyingLoan(false)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem("memberAccount")
     router.push("/")
-  }
-
-  const handleDownloadCalendarReminder = () => {
-    const icsContent = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//FDS//Monthly Deposit Reminder//EN
-BEGIN:VEVENT
-SUMMARY:FDS Monthly Deposit Reminder
-DESCRIPTION:Please remember to make your monthly deposit to the Friends Development Society.
-RRULE:FREQ=MONTHLY;BYMONTHDAY=10
-DTSTART:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z
-UID:fds-reminder-${new Date().getTime()}@fds.com
-END:VEVENT
-END:VCALENDAR`;
-
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'fds_monthly_deposit.ics');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("ক্যালেন্ডার রিমাইন্ডার ডাউনলোড হয়েছে");
   }
 
   const handleSubscribe = async () => {
@@ -302,44 +325,6 @@ END:VCALENDAR`;
     return monthNames[month as keyof typeof monthNames] || month
   }
 
-
-  // Calculate Due Info
-  const calculateDue = () => {
-    if (!member) return { months: 0, amount: 0, status: 'No Due' };
-
-    const joinDate = new Date(member.createdAt);
-    const currentDate = new Date();
-
-    let totalMonths = (currentDate.getFullYear() - joinDate.getFullYear()) * 12;
-    totalMonths -= joinDate.getMonth();
-    totalMonths += currentDate.getMonth() + 1; // Include current month
-
-    // Stop accruing dues if inactive. This requires knowing WHEN they became inactive,
-    // but without tracking that, we can assume if inactive, dues don't increment from now.
-    // If they are inactive, we ideally stop at updatedAt, but to keep it simple, we just use current date or their last update.
-    if (member.isActive === false) {
-      const updateDate = new Date(member.updatedAt);
-      totalMonths = (updateDate.getFullYear() - joinDate.getFullYear()) * 12;
-      totalMonths -= joinDate.getMonth();
-      totalMonths += updateDate.getMonth() + 1;
-    }
-
-    if (totalMonths <= 0) totalMonths = 1;
-
-    const expectedContribution = totalMonths * 1000;
-    const paidContribution = member.contributions.reduce((sum, c) => sum + c.amount, 0);
-
-    const dueAmount = expectedContribution - paidContribution;
-    const dueMonths = Math.ceil(dueAmount / 1000);
-
-    return {
-      months: dueMonths > 0 ? dueMonths : 0,
-      amount: dueAmount > 0 ? dueAmount : 0,
-    };
-  };
-
-  const dueInfo = calculateDue();
-
   const getTotalBalance = () => {
     if (!member) return 0
     const contributions = member.contributions.reduce((sum, c) => sum + c.amount, 0)
@@ -362,6 +347,48 @@ END:VCALENDAR`;
     return member.contributions
       .filter(c => c.year === currentYear)
       .reduce((sum, contribution) => sum + contribution.amount, 0)
+  }
+
+  const getDueDetails = () => {
+    if (!member) return { dueMonths: 0, dueAmount: 0 }
+
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-indexed (0=Jan, 8=Sep)
+    const currentDay = now.getDate()
+
+    let expectedAmount = 0
+    let expectedMonths = 0
+
+    // Loop from September 2025 to the "current" calculation month
+    // We stop adding if we haven't reached the month/year yet
+    // Or if we are in the current month but it's before the 10th
+    for (let y = 2025; y <= currentYear; y++) {
+      let mStart = (y === 2025) ? 8 : 0 // Start from Sep in 2025
+      let mEnd = 11
+
+      if (y === currentYear) {
+        // If before the 10th, don't count current month as due yet
+        mEnd = currentDay >= 10 ? currentMonth : currentMonth - 1
+      }
+
+      for (let m = mStart; m <= mEnd; m++) {
+        expectedMonths++
+        if (y === 2025) {
+          expectedAmount += 500
+        } else {
+          expectedAmount += 1000
+        }
+      }
+    }
+
+    const totalPaidAmount = member.contributions.reduce((sum, c) => sum + c.amount, 0)
+    const totalPaidMonths = member.contributions.length
+
+    const dueMonths = Math.max(0, expectedMonths - totalPaidMonths)
+    const dueAmount = Math.max(0, expectedAmount - totalPaidAmount)
+
+    return { dueMonths, dueAmount }
   }
 
   const generatePDF = async () => {
@@ -749,9 +776,9 @@ END:VCALENDAR`;
   if (!member) return null
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 md:pb-8">
+    <div className="min-h-screen bg-gray-50/50 pb-20 md:pb-8">
       {/* Modern Profile Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white backdrop-blur-md bg-opacity-90">
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 sticky top-0 z-20 shadow-lg text-white">
          <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <Avatar className="h-9 w-9 border-2 border-white/30">
@@ -792,19 +819,14 @@ END:VCALENDAR`;
 
       <main className="max-w-md mx-auto px-4 pt-6 space-y-6">
 
-
-        {/* Inactive Member Warning */}
-        {member.isActive === false && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-rose-50 border border-rose-200 text-rose-600 p-4 rounded-xl flex items-center gap-3 shadow-sm"
-          >
-            <AlertCircle className="h-5 w-5 shrink-0" />
-            <div className="text-sm font-medium leading-relaxed">
-              আপনার সদস্যপদ স্থগিত করা হয়েছে। নতুন কোনো চাঁদা যোগ করা যাবে না। তবে আপনার জমাকৃত টাকা ও হিসাব সুরক্ষিত আছে।
-            </div>
-          </motion.div>
+        {/* Due Warning Alert */}
+        {getDueDetails().dueMonths > 2 && (
+          <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+            <AlertCircle className="h-4 w-4" color="currentColor" />
+            <AlertDescription className="ml-2 font-medium">
+              দয়া করে আপনার বকেয়া (৳{getDueDetails().dueAmount}) পরিশোধ করুন অথবা আপনার একাউন্ট স্থগিত করা হবে।
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Member Card Section */}
@@ -817,8 +839,8 @@ END:VCALENDAR`;
         </motion.div>
 
         {/* Quick Actions / Stats */}
-        <div className="grid grid-cols-3 gap-3">
-           <Card className="bg-white border-0 shadow-md">
+        <div className="grid grid-cols-2 gap-3">
+           <Card className="bg-white border-0 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
                     <DollarSign className="h-5 w-5" />
@@ -829,7 +851,7 @@ END:VCALENDAR`;
                  </div>
               </CardContent>
            </Card>
-           <Card className="bg-white border-0 shadow-md">
+           <Card className="bg-white border-0 shadow-sm">
               <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
                  <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
                     <Calendar className="h-5 w-5" />
@@ -840,24 +862,49 @@ END:VCALENDAR`;
                  </div>
               </CardContent>
            </Card>
-           <Card className="bg-white border-0 shadow-md cursor-pointer hover:bg-slate-50 transition-colors" onClick={handleDownloadCalendarReminder}>
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center gap-2">
-                 <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-                    <Bell className="h-5 w-5" />
-                 </div>
-                 <div>
-                    <div className="text-sm font-bold text-gray-900 mt-1">রিমাইন্ডার</div>
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider">মাসিক চাঁদা</div>
-                 </div>
-              </CardContent>
-           </Card>
         </div>
+
+        {/* Due Card */}
+        {getDueDetails().dueAmount > 0 && (
+          <Card className="bg-white border-0 shadow-sm col-span-2 border-l-4 border-l-red-500">
+            <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                      <AlertCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                      <div className="text-sm font-semibold text-gray-900">মোট বকেয়া</div>
+                      {getDueDetails().dueMonths > 0 && (
+                        <div className="text-xs text-muted-foreground">{getDueDetails().dueMonths} মাসের বকেয়া রয়েছে</div>
+                      )}
+                  </div>
+                </div>
+                <div className="text-xl font-bold text-red-600">৳{toBengaliNumber(getDueDetails().dueAmount)}</div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 p-1 bg-gray-100/80 rounded-xl mb-6">
-            <TabsTrigger value="history" className="rounded-lg text-xs font-medium">লেনদেন</TabsTrigger>
-            <TabsTrigger value="profile" className="rounded-lg text-xs font-medium">প্রোফাইল</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 gap-3 p-0 bg-transparent mb-8 h-auto">
+            <TabsTrigger value="history" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-indigo-100 transition-all">
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/50 rounded-full">
+                <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <span className="text-xs font-medium">লেনদেন</span>
+            </TabsTrigger>
+            <TabsTrigger value="profile" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-purple-100 transition-all">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full">
+                <User className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <span className="text-xs font-medium">প্রোফাইল</span>
+            </TabsTrigger>
+            <TabsTrigger value="loans" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 data-[state=active]:border-amber-100 transition-all">
+              <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full">
+                <Wallet className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-xs font-medium">লোন</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="history" className="space-y-4 min-h-[300px]">
@@ -941,9 +988,23 @@ END:VCALENDAR`;
 
           <TabsContent value="profile">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between space-y-0 pb-4">
                 <CardTitle>ব্যক্তিগত তথ্য</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => {
+                    const today = new Date();
+                    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 10);
+                    const startDate = nextMonth.toISOString().replace(/-|:|\.\d\d\d/g, "");
+                    const endDate = new Date(nextMonth.getTime() + 60 * 60 * 1000).toISOString().replace(/-|:|\.\d\d\d/g, "");
+                    const title = encodeURIComponent("FDS Monthly Deposit Reminder");
+                    const details = encodeURIComponent("Reminder to deposit monthly 1000 Taka to FDS account.");
+                    const rule = "FREQ=MONTHLY;BYMONTHDAY=10";
+                    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&recur=${rule}`;
+                    window.open(googleCalendarUrl, "_blank");
+                  }}>
+                    <Calendar className="h-4 w-4 mr-2" />
+                    রিমাইন্ডার সেট করুন
+                  </Button>
                   <Dialog open={isChangingPin} onOpenChange={setIsChangingPin}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
@@ -1180,6 +1241,61 @@ END:VCALENDAR`;
                          <p className="text-sm text-muted-foreground">{member.nomineeNid || "তথ্য নেই"}</p>
                       </div>
                    </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="loans" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>নতুন লোনের আবেদন</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>পরিমাণ (টাকা)</Label>
+                  <Input
+                    type="number"
+                    value={newLoan.amount}
+                    onChange={(e) => setNewLoan({...newLoan, amount: e.target.value})}
+                    placeholder="উদাহরণ: 5000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>কারণ</Label>
+                  <Textarea
+                    value={newLoan.purpose}
+                    onChange={(e) => setNewLoan({...newLoan, purpose: e.target.value})}
+                    placeholder="লোন নেয়ার কারণ লিখুন"
+                  />
+                </div>
+                <Button onClick={applyForLoan} disabled={isApplyingLoan} className="w-full">
+                  {isApplyingLoan ? "আবেদন হচ্ছে..." : "আবেদন করুন"}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>লোনের ইতিহাস</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {loans.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">কোনো লোনের রেকর্ড নেই</p>
+                  ) : (
+                    loans.map((loan) => (
+                      <div key={loan.id} className="flex justify-between items-center p-3 border rounded-lg">
+                        <div>
+                          <p className="font-semibold text-sm">৳{loan.amount}</p>
+                          <p className="text-xs text-gray-500">{loan.purpose}</p>
+                          <p className="text-xs text-gray-400 mt-1">{new Date(loan.createdAt).toLocaleDateString('bn-BD')}</p>
+                        </div>
+                        <Badge variant={loan.status === 'APPROVED' ? 'default' : loan.status === 'REJECTED' ? 'destructive' : 'secondary'}>
+                          {loan.status}
+                        </Badge>
+                      </div>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
