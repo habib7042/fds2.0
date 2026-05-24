@@ -26,7 +26,6 @@ model Admin {
 model Member {
   id              String   @id @default(cuid())
   accountNumber   String   @unique
-  isActive        Boolean  @default(true)
   pin             String   @default("1234")
   name            String
   phone           String?  @unique
@@ -52,12 +51,13 @@ model Member {
   votes         PollVote[]
   adjustments   AccountAdjustment[]
   subscriptions PushSubscription[]
+  loans         Loan[]
 }
 
 model Contribution {
   id          String   @id @default(cuid())
   memberId    String
-  month       String // Format: YYYY-MM
+  month       String   // Format: YYYY-MM
   year        Int
   amount      Float
   paymentDate DateTime @default(now())
@@ -73,18 +73,18 @@ model Contribution {
 model AccountAdjustment {
   id          String   @id @default(cuid())
   memberId    String
-  type        String // "CHARGE" or "INTEREST"
+  type        String   // "CHARGE" or "INTEREST"
   amount      Float
   date        DateTime @default(now())
   description String?
   createdAt   DateTime @default(now())
 
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
 model FundAdjustment {
   id          String   @id @default(cuid())
-  type        String // "CHARGE" or "INTEREST"
+  type        String   // "CHARGE" or "INTEREST"
   amount      Float
   date        DateTime @default(now())
   description String?
@@ -95,23 +95,34 @@ model PushSubscription {
   id        String   @id @default(cuid())
   memberId  String
   endpoint  String
-  keys      Json // Stores p256dh and auth keys
+  keys      Json     // Stores p256dh and auth keys
   createdAt DateTime @default(now())
 
-  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Investment {
+  id          String   @id @default(cuid())
+  amount      Float
+  project     String
+  status      String   @default("ACTIVE") // ACTIVE, RETURNED
+  date        DateTime @default(now())
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Post {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   content   String
   image     String?
   authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  author   Member    @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  comments Comment[]
-  likes    Like[]
+  author    Member    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments  Comment[]
+  likes     Like[]
 }
 
 model Comment {
@@ -121,8 +132,8 @@ model Comment {
   postId    String
   createdAt DateTime @default(now())
 
-  author Member @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    Member   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 }
 
 model Like {
@@ -131,43 +142,55 @@ model Like {
   postId    String
   createdAt DateTime @default(now())
 
-  author Member @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    Member   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([authorId, postId])
 }
 
 model Poll {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   question  String
   creatorId String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  creator Admin        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  options PollOption[]
-  votes   PollVote[]
+  creator   Admin        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  options   PollOption[]
+  votes     PollVote[]
 }
 
 model PollOption {
-  id     String @id @default(cuid())
+  id     String     @id @default(cuid())
   text   String
   pollId String
 
-  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  votes PollVote[]
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  PollVote[]
 }
 
 model PollVote {
-  id       String @id @default(cuid())
+  id       String     @id @default(cuid())
   voterId  String
   pollId   String
   optionId String
 
-  voter  Member     @relation(fields: [voterId], references: [id], onDelete: Cascade)
-  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
-  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  voter    Member     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
   @@unique([voterId, pollId])
+}
+
+model Loan {
+  id        String   @id @default(cuid())
+  memberId  String
+  amount    Float
+  purpose   String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED, PAID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }

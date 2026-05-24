@@ -30,21 +30,30 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const token = authHeader.substring(7)
+    let authenticatedAdminId = ""
+    try {
+      const decoded = Buffer.from(token, "base64").toString()
+      const [adminId] = decoded.split(":")
+      if (!adminId) throw new Error("Invalid token format")
+      const admin = await db.admin.findUnique({ where: { id: adminId } })
+      if (!admin) throw new Error("Admin not found")
+      authenticatedAdminId = admin.id
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    }
+
     let { question, options, creatorId } = await request.json()
 
     if (!question || !options || options.length < 2) {
       return NextResponse.json({ error: "Invalid poll data" }, { status: 400 })
     }
 
-    // If creatorId is not provided, try to find the first admin
-    if (!creatorId) {
-      const admin = await db.admin.findFirst()
-      if (admin) {
-        creatorId = admin.id
-      } else {
-        return NextResponse.json({ error: "No admin found to create poll" }, { status: 500 })
-      }
-    }
+    creatorId = authenticatedAdminId
 
     const poll = await db.poll.create({
       data: {
@@ -68,6 +77,21 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authHeader = request.headers.get("authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const token = authHeader.substring(7)
+    try {
+      const decoded = Buffer.from(token, "base64").toString()
+      const [adminId] = decoded.split(":")
+      if (!adminId) throw new Error("Invalid token format")
+      const admin = await db.admin.findUnique({ where: { id: adminId } })
+      if (!admin) throw new Error("Admin not found")
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 })
+    }
+
     const { id, isActive } = await request.json()
 
     if (!id || typeof isActive !== "boolean") {

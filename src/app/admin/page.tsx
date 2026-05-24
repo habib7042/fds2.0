@@ -11,11 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2 } from "lucide-react"
+import { Menu, LogOut, UserPlus, CreditCard, Users, TrendingUp, AlertCircle, FileText, Search, Wallet, Eye, BarChart2, Briefcase } from "lucide-react"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { toast } from "sonner"
@@ -57,7 +57,6 @@ interface Member {
   nomineeImage?: string
   createdAt: string
   contributions: Contribution[]
-  isActive?: boolean
   adjustments: Adjustment[]
 }
 
@@ -90,11 +89,37 @@ interface PollOption {
   }
 }
 
+interface AdminLoan {
+  id: string
+  amount: number
+  purpose: string
+  status: "PENDING" | "APPROVED" | "REJECTED" | "PAID"
+  createdAt: string
+  member: {
+    name: string
+    accountNumber: string
+  }
+}
+
+interface Investment {
+  id: string
+  amount: number
+  project: string
+  status: "ACTIVE" | "RETURNED"
+  date: string
+  description?: string
+  createdAt: string
+}
+
 export default function AdminDashboard() {
   const [members, setMembers] = useState<Member[]>([])
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
+  const [adminLoans, setAdminLoans] = useState<AdminLoan[]>([])
   const [fundAdjustments, setFundAdjustments] = useState<FundAdjustment[]>([])
+  const [investments, setInvestments] = useState<Investment[]>([])
+  const [showAddInvestment, setShowAddInvestment] = useState(false)
+  const [newInvestment, setNewInvestment] = useState({ amount: "", project: "", description: "" })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [showAddMember, setShowAddMember] = useState(false)
@@ -141,7 +166,111 @@ export default function AdminDashboard() {
     fetchMembers()
     fetchPolls()
     fetchFundAdjustments()
+    fetchAdminLoans()
+    fetchInvestments()
   }, [])
+
+  const fetchInvestments = async () => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/investments", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setInvestments(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch investments")
+    }
+  }
+
+  const handleUpdateInvestmentStatus = async (id: string, status: string) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch(`/api/admin/investments/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      })
+
+      if (response.ok) {
+        toast.success(`বিনিয়োগ স্ট্যাটাস আপডেট হয়েছে`)
+        fetchInvestments()
+      } else {
+        toast.error("স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
+
+  const handleAddInvestment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/investments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(newInvestment)
+      })
+
+      if (response.ok) {
+        toast.success("নতুন বিনিয়োগ যোগ করা হয়েছে")
+        setShowAddInvestment(false)
+        setNewInvestment({ amount: "", project: "", description: "" })
+        fetchInvestments()
+      } else {
+        toast.error("বিনিয়োগ যোগ করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
+
+  const fetchAdminLoans = async () => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/loans", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setAdminLoans(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin loans")
+    }
+  }
+
+  const handleUpdateLoanStatus = async (id: string, status: string) => {
+    try {
+      const token = localStorage.getItem("adminToken")
+      const response = await fetch("/api/admin/loans", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ id, status })
+      })
+
+      if (response.ok) {
+        toast.success(`লোনের স্ট্যাটাস ${status} করা হয়েছে`)
+        fetchAdminLoans()
+      } else {
+        toast.error("স্ট্যাটাস আপডেট করতে সমস্যা হয়েছে")
+      }
+    } catch (err) {
+      toast.error("নেটওয়ার্ক সমস্যা")
+    }
+  }
 
   useEffect(() => {
     if (searchQuery) {
@@ -232,30 +361,6 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       setError("Network error occurred")
-    }
-  }
-
-
-  const handleToggleMemberStatus = async (memberId: string, currentStatus: boolean) => {
-    try {
-      const token = localStorage.getItem("adminToken")
-      const response = await fetch(`/api/admin/members/${memberId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ isActive: !currentStatus })
-      })
-
-      if (response.ok) {
-        toast.success(currentStatus ? "সদস্যপদ স্থগিত করা হয়েছে" : "সদস্যপদ সক্রিয় করা হয়েছে")
-        fetchMembers()
-      } else {
-        toast.error("স্ট্যাটাস পরিবর্তন করতে ব্যর্থ")
-      }
-    } catch (err) {
-      toast.error("Network error occurred")
     }
   }
 
@@ -435,7 +540,15 @@ export default function AdminDashboard() {
         }, 0)
     }, 0);
 
-    return contributions + globalAdjustments + personalAdjustments;
+    const activeLoans = adminLoans.reduce((sum, loan) => {
+        return loan.status === 'APPROVED' ? sum + loan.amount : sum
+    }, 0)
+
+    const activeInvestments = investments.reduce((sum, inv) => {
+        return inv.status === 'ACTIVE' ? sum + inv.amount : sum
+    }, 0)
+
+    return contributions + globalAdjustments + personalAdjustments - activeLoans - activeInvestments;
   }
 
   const getMonthlyData = () => {
@@ -840,9 +953,9 @@ export default function AdminDashboard() {
   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20 md:pb-8">
+    <div className="min-h-screen bg-background pb-20 md:pb-8">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 border-b bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-20 shadow-sm">
+      <div className="md:hidden flex items-center justify-between p-4 border-b bg-background sticky top-0 z-20">
         <div className="font-bold text-lg">অ্যাডমিন প্যানেল</div>
         <Sheet>
           <SheetTrigger asChild>
@@ -872,16 +985,16 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8">
         {/* Desktop Header */}
-        <div className="hidden md:flex justify-between items-center bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800">
+        <div className="hidden md:flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">অ্যাডমিন ড্যাশবোর্ড</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-800">অ্যাডমিন ড্যাশবোর্ড</h1>
             <p className="text-gray-500">সংগঠনের সকল কার্যক্রম নিয়ন্ত্রণ করুন</p>
           </div>
           <div className="flex gap-4">
-            <Button onClick={() => setShowAddMember(true)} className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm hover:shadow transition-all">
+            <Button onClick={() => setShowAddMember(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
               <UserPlus className="mr-2 h-4 w-4" /> সদস্য যোগ
             </Button>
-            <Button onClick={() => setShowAddContribution(true)} className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm hover:shadow transition-all">
+            <Button onClick={() => setShowAddContribution(true)} className="bg-green-600 hover:bg-green-700 text-white">
               <CreditCard className="mr-2 h-4 w-4" /> চাঁদা যোগ
             </Button>
             <Button onClick={() => setShowCreatePoll(true)} variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50">
@@ -902,103 +1015,74 @@ export default function AdminDashboard() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-blue-500 to-blue-600 text-white group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <CardTitle className="text-sm font-medium text-blue-50/90 z-10 relative">মোট সদস্য</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Users className="h-5 w-5 text-white" /></div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(members.length)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Users className="h-24 w-24" /></div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-emerald-500 to-emerald-600 text-white group">
+          <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-white to-blue-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-emerald-50/90 z-10 relative">মোট তহবিল</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><Wallet className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-blue-700">মোট সদস্য</CardTitle>
+              <Users className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><Wallet className="h-24 w-24" /></div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-          <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-purple-500 to-purple-600 text-white group">
+              <div className="text-2xl font-bold text-blue-900">{toBengaliNumber(members.length)}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-green-500 bg-gradient-to-br from-white to-green-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-purple-50/90 z-10 relative">জমা (চলতি মাস)</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><TrendingUp className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-green-700">মোট তহবিল</CardTitle>
+              <Wallet className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><TrendingUp className="h-24 w-24" /></div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-           <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-all duration-300 relative bg-gradient-to-br from-rose-500 to-rose-600 text-white group">
+              <div className="text-2xl font-bold text-green-700">৳{toBengaliNumber(getTotalFund().toFixed(2))}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-purple-500 bg-gradient-to-br from-white to-purple-50/50">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-rose-50/90 z-10 relative">বকেয়া সদস্য</CardTitle>
-              <div className="p-2 bg-white/20 rounded-lg z-10 relative group-hover:scale-110 transition-transform"><AlertCircle className="h-5 w-5 text-white" /></div>
+              <CardTitle className="text-sm font-medium text-purple-700">জমা (চলতি মাস)</CardTitle>
+              <TrendingUp className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white z-10 relative mt-2">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div><div className="absolute -bottom-4 -right-4 text-white/10 rotate-12 scale-150"><AlertCircle className="h-24 w-24" /></div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+              <div className="text-2xl font-bold text-purple-900">৳{toBengaliNumber(getPaymentStats().totalAmount)}</div>
+            </CardContent>
+          </Card>
+           <Card className="border-l-4 border-l-red-500 bg-gradient-to-br from-white to-red-50/50">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-red-700">বকেয়া সদস্য</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{toBengaliNumber(getPaymentStats().unpaidMembers)}</div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="members" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px] p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl">
-            <TabsTrigger value="members">সদস্য</TabsTrigger>
-            <TabsTrigger value="payments">হিসাব</TabsTrigger>
-            <TabsTrigger value="overview">সারসংক্ষেপ</TabsTrigger>
-            <TabsTrigger value="polls">পোলস</TabsTrigger>
-            <TabsTrigger value="financials">অর্থ</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8 h-auto bg-transparent">
+            <TabsTrigger value="members" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-blue-100 rounded-full"><Users className="h-5 w-5 text-blue-600" /></div>
+              <span className="text-xs font-medium">সদস্য</span>
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-green-100 rounded-full"><CreditCard className="h-5 w-5 text-green-600" /></div>
+              <span className="text-xs font-medium">হিসাব</span>
+            </TabsTrigger>
+            <TabsTrigger value="overview" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-purple-100 rounded-full"><BarChart2 className="h-5 w-5 text-purple-600" /></div>
+              <span className="text-xs font-medium">সারসংক্ষেপ</span>
+            </TabsTrigger>
+            <TabsTrigger value="polls" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-pink-100 rounded-full"><FileText className="h-5 w-5 text-pink-600" /></div>
+              <span className="text-xs font-medium">পোলস</span>
+            </TabsTrigger>
+            <TabsTrigger value="financials" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-indigo-100 rounded-full"><TrendingUp className="h-5 w-5 text-indigo-600" /></div>
+              <span className="text-xs font-medium">অর্থ</span>
+            </TabsTrigger>
+            <TabsTrigger value="loans" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-amber-100 rounded-full"><Wallet className="h-5 w-5 text-amber-600" /></div>
+              <span className="text-xs font-medium">লোন</span>
+            </TabsTrigger>
+            <TabsTrigger value="investments" className="flex flex-col items-center justify-center gap-2 p-3 h-auto min-h-[5.5rem] bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl data-[state=active]:bg-white data-[state=active]:shadow-md border border-white/20 transition-all">
+              <div className="p-2 bg-teal-100 rounded-full"><Briefcase className="h-5 w-5 text-teal-600" /></div>
+              <span className="text-xs font-medium">বিনিয়োগ</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="members" className="space-y-4">
@@ -1022,7 +1106,7 @@ export default function AdminDashboard() {
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Card className="hover:shadow-xl transition-all duration-300 border-slate-200/60 hover:border-blue-200 bg-white/80 backdrop-blur-sm group">
+                    <Card className="hover:shadow-md transition-shadow">
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <div className="flex items-center gap-3">
                            <Avatar className="h-10 w-10">
@@ -1033,7 +1117,7 @@ export default function AdminDashboard() {
                               <CardTitle className="text-sm font-medium">
                                  {member.name}
                               </CardTitle>
-                              <Badge variant="secondary" className="bg-slate-100 text-slate-600 font-mono text-[10px] py-0">{toBengaliNumber(member.accountNumber)}</Badge>
+                              <Badge variant="outline">{toBengaliNumber(member.accountNumber)}</Badge>
                            </div>
                         </div>
                       </CardHeader>
@@ -1065,19 +1149,6 @@ export default function AdminDashboard() {
                                 </Button>
                              </div>
                           </div>
-                        </div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -1116,8 +1187,8 @@ export default function AdminDashboard() {
                </div>
               </CardHeader>
               <CardContent className="overflow-auto">
-                <Table className="border-collapse">
-                  <TableHeader className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10">
+                <Table>
+                  <TableHeader>
                     <TableRow>
                       <TableHead className="w-[200px]">সদস্য</TableHead>
                       {getFilteredMonths().map(m => (
@@ -1127,7 +1198,7 @@ export default function AdminDashboard() {
                   </TableHeader>
                   <TableBody>
                     {members.map(member => (
-                      <TableRow key={member.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                      <TableRow key={member.id}>
                         <TableCell className="font-medium">
                            <div className="flex items-center gap-2">
                               <Avatar className="h-8 w-8">
@@ -1255,21 +1326,8 @@ export default function AdminDashboard() {
                         </Button>
                       )}
                     </div>
-                        <div className="flex flex-col gap-2 pt-2 border-t mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`w-full ${m.isActive !== false ? 'text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-200' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 border-emerald-200'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleMemberStatus(m.id, m.isActive ?? true);
-                            }}
-                          >
-                            {m.isActive !== false ? 'সদস্যপদ স্থগিত করুন' : 'সদস্যপদ সক্রিয় করুন'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  </CardContent>
+                </Card>
               ))}
               {polls.length === 0 && (
                 <div className="col-span-2 text-center py-10 text-muted-foreground">
@@ -1374,6 +1432,153 @@ export default function AdminDashboard() {
                   </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="loans" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>লোন ম্যানেজমেন্ট</CardTitle>
+                <CardDescription>সদস্যদের লোনের আবেদন এবং বর্তমান অবস্থা</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>সদস্য</TableHead>
+                      <TableHead>পরিমাণ</TableHead>
+                      <TableHead>কারণ</TableHead>
+                      <TableHead>তারিখ</TableHead>
+                      <TableHead>স্ট্যাটাস</TableHead>
+                      <TableHead className="text-right">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {adminLoans.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center">কোনো লোন নেই</TableCell>
+                      </TableRow>
+                    ) : (
+                      adminLoans.map((loan) => (
+                        <TableRow key={loan.id}>
+                          <TableCell className="font-medium">
+                            {loan.member?.name} <br/>
+                            <span className="text-xs text-muted-foreground">{loan.member?.accountNumber}</span>
+                          </TableCell>
+                          <TableCell>৳{loan.amount}</TableCell>
+                          <TableCell>{loan.purpose}</TableCell>
+                          <TableCell>{new Date(loan.createdAt).toLocaleDateString('bn-BD')}</TableCell>
+                          <TableCell>
+                            <Badge variant={loan.status === 'APPROVED' ? 'default' : loan.status === 'REJECTED' ? 'destructive' : loan.status === 'PAID' ? 'secondary' : 'outline'}>
+                              {loan.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            {loan.status === 'PENDING' && (
+                              <>
+                                <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => handleUpdateLoanStatus(loan.id, 'APPROVED')}>অনুমোদন</Button>
+                                <Button size="sm" variant="destructive" onClick={() => handleUpdateLoanStatus(loan.id, 'REJECTED')}>বাতিল</Button>
+                              </>
+                            )}
+                            {loan.status === 'APPROVED' && (
+                              <Button size="sm" variant="outline" onClick={() => handleUpdateLoanStatus(loan.id, 'PAID')}>পরিশোধিত</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="investments" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold">ফান্ড বিনিয়োগ</h2>
+              <Dialog open={showAddInvestment} onOpenChange={setShowAddInvestment}>
+                <DialogTrigger asChild>
+                  <Button className="bg-teal-600 hover:bg-teal-700">নতুন বিনিয়োগ</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>নতুন ফান্ড বিনিয়োগ</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddInvestment} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>পরিমাণ (টাকা)</Label>
+                      <Input
+                        type="number"
+                        value={newInvestment.amount}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, amount: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>প্রজেক্ট / খাত</Label>
+                      <Input
+                        value={newInvestment.project}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, project: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>বিবরণ</Label>
+                      <Textarea
+                        value={newInvestment.description}
+                        onChange={(e) => setNewInvestment({ ...newInvestment, description: e.target.value })}
+                      />
+                    </div>
+                    <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700">সংরক্ষণ করুন</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>প্রজেক্ট</TableHead>
+                      <TableHead>পরিমাণ</TableHead>
+                      <TableHead>তারিখ</TableHead>
+                      <TableHead>স্ট্যাটাস</TableHead>
+                      <TableHead className="text-right">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {investments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">কোনো বিনিয়োগ নেই</TableCell>
+                      </TableRow>
+                    ) : (
+                      investments.map((inv) => (
+                        <TableRow key={inv.id}>
+                          <TableCell className="font-medium">
+                            {inv.project}
+                            {inv.description && <div className="text-xs text-muted-foreground mt-1">{inv.description}</div>}
+                          </TableCell>
+                          <TableCell>৳{inv.amount}</TableCell>
+                          <TableCell>{new Date(inv.date).toLocaleDateString('bn-BD')}</TableCell>
+                          <TableCell>
+                            <Badge variant={inv.status === 'ACTIVE' ? 'default' : 'secondary'} className={inv.status === 'ACTIVE' ? 'bg-teal-500' : ''}>
+                              {inv.status === 'ACTIVE' ? 'চলমান' : 'ফেরত'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {inv.status === 'ACTIVE' && (
+                              <Button size="sm" variant="outline" onClick={() => handleUpdateInvestmentStatus(inv.id, 'RETURNED')}>
+                                ফেরত নিন
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

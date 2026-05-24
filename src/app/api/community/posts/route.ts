@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { put } from "@vercel/blob"
+import * as jose from "jose"
+
+const jwtSecret = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'default_secret_key_change_me'
+)
+
+async function getMemberIdFromToken(request: NextRequest) {
+  const cookie = request.cookies.get("member_session")?.value
+  if (!cookie) return null
+  try {
+    const { payload } = await jose.jwtVerify(cookie, jwtSecret)
+    if (!payload.id || typeof payload.id !== "string") return null
+    return payload.id
+  } catch (error) {
+    return null
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,10 +61,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const memberId = await getMemberIdFromToken(request)
+    if (!memberId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const formData = await request.formData()
     const content = formData.get("content") as string
-    const authorId = formData.get("authorId") as string
     const imageFile = formData.get("image") as File | null
+    const authorId = memberId
 
     if (!content && !imageFile) {
       return NextResponse.json({ error: "Content or image is required" }, { status: 400 })
