@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,45 +15,53 @@ type Message = {
 export default function SocketDemo() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [socket, setSocket] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const ws = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const socketInstance = io({
-      path: '/api/socketio',
-    });
+    // Protocol handling (ws vs wss)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/websocket`;
 
-    setSocket(socketInstance);
+    const socket = new WebSocket(wsUrl);
+    ws.current = socket;
 
-    socketInstance.on('connect', () => {
+    socket.onopen = () => {
       setIsConnected(true);
-    });
+    };
 
-    socketInstance.on('disconnect', () => {
+    socket.onclose = () => {
       setIsConnected(false);
-    });
+    };
 
-    socketInstance.on('message', (msg: Message) => {
-      setMessages(prev => [...prev, msg]);
-    });
+    socket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        setMessages(prev => [...prev, msg]);
+      } catch (e) {
+        setMessages(prev => [...prev, {
+          text: event.data,
+          senderId: 'system',
+          timestamp: new Date().toISOString()
+        }]);
+      }
+    };
 
     return () => {
-      socketInstance.disconnect();
+      socket.close();
     };
   }, []);
 
   const sendMessage = () => {
-    if (socket && inputMessage.trim()) {
-      setMessages(prev => [...prev, {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN && inputMessage.trim()) {
+      const msg = {
         text: inputMessage.trim(),
-        senderId: socket.id || 'user',
+        senderId: 'user',
         timestamp: new Date().toISOString()
-      }]);
-      socket.emit('message', {
-        text: inputMessage.trim(),
-        senderId: socket.id || 'user',
-        timestamp: new Date().toISOString()
-      });
+      };
+
+      setMessages(prev => [...prev, msg]);
+      ws.current.send(JSON.stringify(msg));
       setInputMessage('');
     }
   };
@@ -70,7 +77,7 @@ export default function SocketDemo() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            WebSocket Demo
+            Cloudflare Pages WebSocket Demo
             <span className={`text-sm px-2 py-1 rounded ${isConnected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               {isConnected ? 'Connected' : 'Disconnected'}
             </span>
